@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -19,6 +19,7 @@ interface Conversion {
   voice: string;
   speed: number;
   timestamp: number;
+  duration?: number;
   audioUrl?: string;
   blob?: Blob;
   base64?: string;
@@ -74,12 +75,12 @@ const VOICES: { name: string; label: string; gender: 'M' | 'F'; desc?: string }[
 ];
 
 const TTS_STYLES = [
-  { id: 'entusiasmado', label: 'ðŸ”¥ Entusiasmado', desc: 'EnergÃ©tico e animado' },
-  { id: 'criativo', label: 'ðŸŽ­ Criativo', desc: 'Variado e expressivo' },
-  { id: 'urgente', label: 'âš¡ Urgente', desc: 'PromoÃ§Ã£o imperdÃ­vel' },
-  { id: 'amigavel', label: 'ðŸ˜Š AmigÃ¡vel', desc: 'SimpÃ¡tico e acolhedor' },
-  { id: 'serio', label: 'ðŸŽ¯ Profissional', desc: 'SÃ©rio e formal' },
-  { id: 'neutro', label: 'ðŸ—£ï¸ Neutro', desc: 'Claro e natural' },
+  { id: 'entusiasmado', label: '🔥 Entusiasmado', desc: 'Energético e animado' },
+  { id: 'criativo', label: '🎭 Criativo', desc: 'Variado e expressivo' },
+  { id: 'urgente', label: '⚡ Urgente', desc: 'Promoção imperdível' },
+  { id: 'amigavel', label: '😊 Amigável', desc: 'Simpático e acolhedor' },
+  { id: 'serio', label: '🎯 Profissional', desc: 'Sério e formal' },
+  { id: 'neutro', label: '🗣️ Neutro', desc: 'Claro e natural' },
 ];
 
 export default function SoundTruckTTS() {
@@ -159,12 +160,11 @@ export default function SoundTruckTTS() {
   const [customEffects, setCustomEffects] = useState<CustomEffect[]>([]);
   const [isUploadingEffect, setIsUploadingEffect] = useState(false);
 
-  // --- Waveform Data ---
+  // --- Waveform & Donation ---
   const [ttsWaveform, setTtsWaveform] = useState<number[]>([]);
   const [musicWaveform, setMusicWaveform] = useState<number[]>([]);
   const [showDonation, setShowDonation] = useState(false);
 
-  // Extract peaks from audio data for waveform visualization
   const extractPeaks = (data: Float32Array | Int16Array, numBars: number): number[] => {
     const peaks: number[] = [];
     const step = Math.max(1, Math.floor(data.length / numBars));
@@ -197,6 +197,20 @@ export default function SoundTruckTTS() {
       bgGainRef.current.gain.value = bgMusicVolume;
     }
   }, [bgMusicVolume]);
+
+  // Extract music waveform when music is selected
+  useEffect(() => {
+    if (!selectedMusic) { setMusicWaveform([]); return; }
+    const ctx = initAudioContext();
+    fetch(selectedMusic)
+      .then(r => r.arrayBuffer())
+      .then(buf => ctx.decodeAudioData(buf))
+      .then(audioBuffer => {
+        const ch = audioBuffer.getChannelData(0);
+        setMusicWaveform(extractPeaks(ch, 120));
+      })
+      .catch(() => setMusicWaveform([]));
+  }, [selectedMusic]);
 
   // Close voice dropdown on outside click
   useEffect(() => {
@@ -293,7 +307,7 @@ export default function SoundTruckTTS() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: 'OlÃ¡! Eu sou a voz do seu carro de som!',
+          text: 'Olá! Eu sou a voz do seu carro de som!',
           voice: voiceName,
         }),
       });
@@ -354,7 +368,7 @@ export default function SoundTruckTTS() {
 
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error || 'Erro ao converter Ã¡udio');
+        toast.error(data.error || 'Erro ao converter áudio');
         return;
       }
 
@@ -365,6 +379,7 @@ export default function SoundTruckTTS() {
       setLastGeneratedBase64(base64Audio);
       setTtsTrimStart(0);
       setTtsTrimEnd(null);
+      setTtsWaveform(extractPeaks(pcm, 120));
 
       // Play the audio
       await playPcm(pcm);
@@ -377,6 +392,7 @@ export default function SoundTruckTTS() {
         voice,
         speed,
         timestamp: Date.now(),
+        duration: pcm.length / 24000 / speed,
         blob: mp3Blob,
         base64: base64Audio,
       };
@@ -385,10 +401,10 @@ export default function SoundTruckTTS() {
       setHistory(updatedHistory);
       saveData('history', updatedHistory.map(({ blob, audioUrl, ...rest }) => rest));
 
-      toast.success('Ãudio gerado com sucesso!');
+      toast.success('Áudio gerado com sucesso!');
     } catch (error) {
       console.error(error);
-      toast.error('Erro ao converter Ã¡udio');
+      toast.error('Erro ao converter áudio');
     } finally {
       setIsConverting(false);
     }
@@ -418,12 +434,13 @@ export default function SoundTruckTTS() {
       setLastGeneratedBase64(null);
       setTtsTrimStart(0);
       setTtsTrimEnd(null);
+      setTtsWaveform(extractPeaks(pcm, 120));
       mixedBufferRef.current = null;
 
-      toast.success(`"${file.name}" importado como locuÃ§Ã£o!`);
+      toast.success(`"${file.name}" importado como locução!`);
     } catch (e) {
       console.error(e);
-      toast.error('Erro ao importar Ã¡udio. Verifique o formato do arquivo.');
+      toast.error('Erro ao importar áudio. Verifique o formato do arquivo.');
     }
   };
 
@@ -440,19 +457,19 @@ export default function SoundTruckTTS() {
       if (res.ok) {
         await loadMusics();
         setSelectedMusic(data.url);
-        toast.success(`"${data.name}" adicionada Ã  biblioteca!`);
+        toast.success(`"${data.name}" adicionada à biblioteca!`);
       } else {
         toast.error(data.error || 'Erro no upload');
       }
     } catch {
-      toast.error('Erro ao enviar mÃºsica');
+      toast.error('Erro ao enviar música');
     } finally {
       setIsUploadingMusic(false);
     }
   };
 
   const playBgMusic = async () => {
-    if (!selectedMusic) { toast.error('Selecione uma mÃºsica'); return; }
+    if (!selectedMusic) { toast.error('Selecione uma música'); return; }
     const ctx = initAudioContext();
     try {
       stopBgMusic();
@@ -470,7 +487,7 @@ export default function SoundTruckTTS() {
       bgSourceRef.current = source;
       bgGainRef.current = gain;
     } catch {
-      toast.error('Erro ao reproduzir mÃºsica');
+      toast.error('Erro ao reproduzir música');
     }
   };
 
@@ -491,7 +508,7 @@ export default function SoundTruckTTS() {
       if (selectedMusic?.includes(encodeURIComponent(name))) {
         setSelectedMusic(null);
       }
-      toast.success('MÃºsica removida');
+      toast.success('Música removida');
     } catch { }
   };
 
@@ -514,7 +531,7 @@ export default function SoundTruckTTS() {
       const updated = [...customEffects, newEffect];
       setCustomEffects(updated);
       localStorage.setItem('customEffects', JSON.stringify(updated.map(e => ({ ...e, url: '' }))));
-      // Store blob url in memory (will persist until page reload â€” for permanent, we'd need server storage)
+      // Store blob url in memory (will persist until page reload — for permanent, we'd need server storage)
       toast.success(`Efeito "${name}" adicionado!`);
     } catch {
       toast.error('Erro ao carregar efeito');
@@ -551,7 +568,7 @@ export default function SoundTruckTTS() {
       await playPcm(pcm, item.speed);
       setPlayingHistoryId(null);
     } else {
-      toast.error('Ãudio nÃ£o disponÃ­vel');
+      toast.error('Áudio não disponível');
     }
   };
 
@@ -561,7 +578,7 @@ export default function SoundTruckTTS() {
       const pcm = base64ToPcm(conversion.base64);
       blob = await pcmToMp3(pcm, 24000);
     }
-    if (!blob) { toast.error('Ãudio nÃ£o disponÃ­vel'); return; }
+    if (!blob) { toast.error('Áudio não disponível'); return; }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -700,7 +717,7 @@ export default function SoundTruckTTS() {
 
   const exportMix = async () => {
     if (!lastGeneratedPcm) {
-      toast.error('Gere um Ã¡udio primeiro');
+      toast.error('Gere um áudio primeiro');
       return;
     }
     setIsMixing(true);
@@ -731,7 +748,7 @@ export default function SoundTruckTTS() {
       toast.success('Mixagem exportada!');
     } catch (e) {
       console.error(e);
-      toast.error('Erro ao mixar Ã¡udio');
+      toast.error('Erro ao mixar áudio');
     } finally {
       setIsMixing(false);
     }
@@ -741,7 +758,7 @@ export default function SoundTruckTTS() {
 
   const playMix = async () => {
     if (!lastGeneratedPcm) {
-      toast.error('Gere um Ã¡udio primeiro');
+      toast.error('Gere um áudio primeiro');
       return;
     }
 
@@ -852,7 +869,7 @@ export default function SoundTruckTTS() {
 
   const downloadTtsAudio = () => {
     if (!lastGeneratedPcm) {
-      toast.error('Gere um Ã¡udio primeiro');
+      toast.error('Gere um áudio primeiro');
       return;
     }
     const blob = pcmToWav(lastGeneratedPcm, 24000);
@@ -862,7 +879,7 @@ export default function SoundTruckTTS() {
     a.download = `locucao-${Date.now()}.wav`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('LocuÃ§Ã£o baixada!');
+    toast.success('Locução baixada!');
   };
 
   // Compute effect layers for overlapping effects
@@ -989,6 +1006,9 @@ export default function SoundTruckTTS() {
             <h1 className="text-lg font-black tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">Carro de Som</h1>
             <p className="text-[10px] text-white/30 uppercase tracking-[0.2em]">Sound Truck Engine v2.0</p>
           </div>
+          <button onClick={() => setShowDonation(true)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-white/20 hover:text-red-400 interactive" title="Apoie o projeto">
+            <Heart className="w-3.5 h-3.5" />
+          </button>
         </div>
         {/* Timecode display */}
         {lastGeneratedPcm && (
@@ -1003,7 +1023,7 @@ export default function SoundTruckTTS() {
             <div className="flex gap-1">
               {isPlaying ? (
                 <>
-                  <button onClick={pauseMix} className="p-2 glass rounded-lg hover:bg-yellow-500/20 text-yellow-400 interactive" title="Pausar (EspaÃ§o)">
+                  <button onClick={pauseMix} className="p-2 glass rounded-lg hover:bg-yellow-500/20 text-yellow-400 interactive" title="Pausar (Espaço)">
                     <Pause className="w-4 h-4" />
                   </button>
                   <button onClick={stopMix} className="p-2 glass rounded-lg hover:bg-red-500/20 text-red-400 interactive" title="Parar">
@@ -1011,7 +1031,7 @@ export default function SoundTruckTTS() {
                   </button>
                 </>
               ) : (
-                <button onClick={playMix} disabled={isMixing} className="p-2 glass rounded-lg hover:bg-green-500/20 text-green-400 interactive disabled:text-white/20" title="Reproduzir (EspaÃ§o)">
+                <button onClick={playMix} disabled={isMixing} className="p-2 glass rounded-lg hover:bg-green-500/20 text-green-400 interactive disabled:text-white/20" title="Reproduzir (Espaço)">
                   {isMixing ? <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white" /> : <Play className="w-4 h-4 fill-current" />}
                 </button>
               )}
@@ -1027,14 +1047,17 @@ export default function SoundTruckTTS() {
 
           {/* === TEXT INPUT === */}
           <div className="p-4 border-b border-white/[0.06]">
-            <div className="flex items-center gap-2 mb-3">
-              <Mic2 className="w-4 h-4 text-green-400" />
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/60">Texto para LocuÃ§Ã£o</h2>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Mic2 className="w-4 h-4 text-green-400" />
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/60">Texto para Locução</h2>
+              </div>
+              <span className="text-[9px] text-white/30 font-mono">{text.length} caracteres</span>
             </div>
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Digite o anÃºncio aqui... (ex: ATENÃ‡ÃƒO! OFERTA IMPERDÃVEL!)"
+              placeholder="Digite o anúncio aqui... (ex: ATENÇÃO! OFERTA IMPERDÍVEL!)"
               className="w-full h-28 bg-white/[0.04] border border-white/[0.08] rounded-xl p-3 text-sm text-white/90 focus:outline-none focus:border-green-500/50 focus:bg-white/[0.06] transition-all resize-none placeholder:text-white/20"
             />
           </div>
@@ -1049,7 +1072,7 @@ export default function SoundTruckTTS() {
                 className="w-full flex items-center justify-between bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm interactive hover:bg-white/[0.06] hover:border-white/[0.12]">
                 <div className="flex items-center gap-2">
                   <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${VOICES.find(v => v.name === voice)?.gender === 'M' ? 'bg-blue-500/20 text-blue-300' : 'bg-pink-500/20 text-pink-300'}`}>
-                    {VOICES.find(v => v.name === voice)?.gender === 'M' ? 'â™‚' : 'â™€'}
+                    {VOICES.find(v => v.name === voice)?.gender === 'M' ? '♂' : '♀'}
                   </span>
                   <span className="text-white/90 font-medium">{voice}</span>
                   {VOICES.find(v => v.name === voice)?.desc && (
@@ -1063,7 +1086,7 @@ export default function SoundTruckTTS() {
                 <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-[#141418] border border-white/[0.1] rounded-xl shadow-2xl shadow-black/60 max-h-[340px] overflow-y-auto custom-scrollbar">
                   {/* Masculinas */}
                   <div className="px-3 pt-3 pb-1">
-                    <span className="text-[9px] uppercase tracking-[0.15em] text-blue-400/60 font-bold">â™‚ Masculinas</span>
+                    <span className="text-[9px] uppercase tracking-[0.15em] text-blue-400/60 font-bold">♂ Masculinas</span>
                   </div>
                   {VOICES.filter(v => v.gender === 'M').map((v) => (
                     <div key={v.name}
@@ -1072,7 +1095,7 @@ export default function SoundTruckTTS() {
                       }`}
                       onClick={() => { setVoice(v.name); setShowVoiceDropdown(false); }}>
                       <div className="flex items-center gap-2">
-                        <span className="text-[9px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold">â™‚</span>
+                        <span className="text-[9px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold">♂</span>
                         <span className="text-sm font-medium">{v.label}</span>
                         {v.desc && <span className="text-[9px] text-white/25">{v.desc}</span>}
                       </div>
@@ -1092,7 +1115,7 @@ export default function SoundTruckTTS() {
                   <div className="border-t border-white/[0.06] mx-3 my-1" />
                   {/* Femininas */}
                   <div className="px-3 pt-2 pb-1">
-                    <span className="text-[9px] uppercase tracking-[0.15em] text-pink-400/60 font-bold">â™€ Femininas</span>
+                    <span className="text-[9px] uppercase tracking-[0.15em] text-pink-400/60 font-bold">♀ Femininas</span>
                   </div>
                   {VOICES.filter(v => v.gender === 'F').map((v) => (
                     <div key={v.name}
@@ -1101,7 +1124,7 @@ export default function SoundTruckTTS() {
                       }`}
                       onClick={() => { setVoice(v.name); setShowVoiceDropdown(false); }}>
                       <div className="flex items-center gap-2">
-                        <span className="text-[9px] bg-pink-500/20 text-pink-300 px-1.5 py-0.5 rounded font-bold">â™€</span>
+                        <span className="text-[9px] bg-pink-500/20 text-pink-300 px-1.5 py-0.5 rounded font-bold">♀</span>
                         <span className="text-sm font-medium">{v.label}</span>
                       </div>
                       <button onClick={(e) => { e.stopPropagation(); previewVoice(v.name); }}
@@ -1121,10 +1144,10 @@ export default function SoundTruckTTS() {
             </div>
           </div>
 
-          {/* === ENTONAÃ‡ÃƒO + VELOCIDADE === */}
+          {/* === ENTONAÇÃO + VELOCIDADE === */}
           <div className="p-4 border-b border-white/[0.06]">
             <label className="text-[10px] uppercase tracking-[0.15em] text-white/40 font-bold mb-2 block">
-              EntonaÃ§Ã£o da Voz
+              Entonação da Voz
             </label>
             <div className="grid grid-cols-3 gap-1.5 mb-4">
               {TTS_STYLES.map(s => (
@@ -1147,7 +1170,7 @@ export default function SoundTruckTTS() {
               onChange={(e) => setSpeed(parseFloat(e.target.value))}
               className="w-full accent-green-500" />
             <div className="flex justify-between text-[9px] text-white/20 mt-1">
-              <span>Lento</span><span>RÃ¡pido</span>
+              <span>Lento</span><span>Rápido</span>
             </div>
           </div>
 
@@ -1158,20 +1181,20 @@ export default function SoundTruckTTS() {
               {isConverting ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-2 border-white/20 border-t-white" />
               ) : (
-                <><Zap className="w-5 h-5 fill-current" />GERAR ÃUDIO</>
+                <><Zap className="w-5 h-5 fill-current" />GERAR ÁUDIO</>
               )}
             </button>
             <div className="flex gap-2">
               <div className="flex-1 relative">
                 <input type="file" accept="audio/*" className="hidden" id="import-voice-file"
                   onChange={(e) => { if (e.target.files?.[0]) { importVoiceFile(e.target.files[0]); e.target.value = ''; } }} />
-                <label htmlFor="import-voice-file" title="Importar Ã¡udio de locuÃ§Ã£o existente"
+                <label htmlFor="import-voice-file" title="Importar áudio de locução existente"
                   className="w-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 interactive cursor-pointer text-white/50 hover:text-white/70">
                   <Upload className="w-4 h-4" /> Importar
                 </label>
               </div>
               {lastGeneratedPcm && (
-                <button onClick={downloadTtsAudio} title="Baixar locuÃ§Ã£o sem mixar"
+                <button onClick={downloadTtsAudio} title="Baixar locução sem mixar"
                   className="flex-1 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 interactive text-white/50 hover:text-white/70">
                   <Download className="w-4 h-4" /> Download
                 </button>
@@ -1184,7 +1207,7 @@ export default function SoundTruckTTS() {
             <div className="p-4 pb-2 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <History className="w-4 h-4 text-white/40" />
-                <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">HistÃ³rico</h2>
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">Histórico</h2>
               </div>
               <span className="text-[10px] bg-white/[0.06] rounded-md px-2 py-0.5 text-white/35 font-mono">{history.length}</span>
             </div>
@@ -1199,11 +1222,13 @@ export default function SoundTruckTTS() {
                       className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg interactive ${playingHistoryId === item.id ? 'bg-red-500/20 text-red-400' : 'bg-green-500/10 text-green-400/70 hover:bg-green-500/20 hover:text-green-400'}`}>
                       {playingHistoryId === item.id ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
                     </button>
-                    {/* Text + meta â€” click to transfer text */}
+                    {/* Text + meta — click to transfer text */}
                     <div className="flex-1 min-w-0 cursor-pointer hover:bg-white/[0.03] rounded px-1 -mx-1 interactive" onClick={() => { setText(item.text); setVoice(item.voice); setSpeed(item.speed); toast.success('Texto carregado'); }}>
                       <p className="text-[11px] text-white/80 truncate">{item.text}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[8px] text-white/30 font-mono">{item.voice}</span>
+                        <span className="text-[8px] text-white/20 font-mono">{item.text.length} chars</span>
+                        {item.duration && <span className="text-[8px] text-green-400/40 font-mono">{item.duration.toFixed(1)}s</span>}
                         <span className="text-[8px] text-white/15 font-mono">{new Date(item.timestamp).toLocaleTimeString()}</span>
                       </div>
                     </div>
@@ -1267,7 +1292,7 @@ export default function SoundTruckTTS() {
                   <div className="flex items-center justify-between mb-1">
                     <div>
                       <h3 className={`text-xs font-bold ${activePlaylist === pl.id ? 'text-green-400' : 'text-white/80'}`}>{pl.name}</h3>
-                      <p className="text-[10px] text-white/30 font-mono">{pl.items.length} locuÃ§Ãµes</p>
+                      <p className="text-[10px] text-white/30 font-mono">{pl.items.length} locuções</p>
                     </div>
                     <div className="flex gap-1">
                       <button onClick={() => playPlaylist(pl.id)} disabled={pl.items.length === 0 || activePlaylist !== null}
@@ -1324,7 +1349,7 @@ export default function SoundTruckTTS() {
                 )}
                 {(isPlaying || playheadTime > 0) && (
                   <span className={`text-[10px] font-mono rounded-lg px-2.5 py-1 ${isPlaying ? 'bg-red-500/15 text-red-400 playhead-active' : 'bg-yellow-500/15 text-yellow-400'}`}>
-                    â± {formatTimecode(playheadTime)}
+                    ⏱ {formatTimecode(playheadTime)}
                   </span>
                 )}
               </div>
@@ -1333,7 +1358,7 @@ export default function SoundTruckTTS() {
             {!lastGeneratedPcm ? (
               <div className="flex-1 flex items-center justify-center">
                 <p className="text-sm text-white/25 text-center py-8">
-                  Gere um Ã¡udio primeiro para montar a timeline de efeitos e mÃºsica
+                  Gere um áudio primeiro para montar a timeline de efeitos e música
                 </p>
               </div>
             ) : (
@@ -1341,9 +1366,8 @@ export default function SoundTruckTTS() {
                 {/* Visual Timeline Bar - Draggable */}
                 <div ref={timelineBarRef} className="relative bg-black/30 rounded-xl mb-4 border border-white/[0.06] p-3 select-none">
                   {/* Time ruler - click to seek */}
-                  <div className="flex justify-between text-[9px] text-white/25 mb-2 px-1 font-mono cursor-pointer hover:text-white/40"
+                  <div className="flex justify-between text-[9px] text-white/25 mb-2 px-1 font-mono cursor-pointer hover:text-white/40 interactive"
                     onClick={(e) => {
-                      if (isPlaying) return;
                       const bar = timelineBarRef.current;
                       if (!bar) return;
                       const rect = bar.getBoundingClientRect();
@@ -1362,8 +1386,17 @@ export default function SoundTruckTTS() {
 
                   {/* TTS track - draggable with trim handles */}
                   <div className="relative h-10 mb-1">
-                    <div className="absolute inset-y-0 track-tts rounded-lg flex items-center gap-0 touch-none border border-green-500/25"
+                    <div className="absolute inset-y-0 track-tts rounded-lg flex items-center gap-0 touch-none border border-green-500/25 overflow-hidden"
                       style={{ left: `${(ttsStartTime / totalTimelineDuration) * 100}%`, width: `${(ttsDuration / totalTimelineDuration) * 100}%` }}>
+                      {/* Waveform overlay */}
+                      {ttsWaveform.length > 0 && (
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-40" preserveAspectRatio="none" viewBox={`0 0 ${ttsWaveform.length} 100`}>
+                          {ttsWaveform.map((peak, i) => {
+                            const h = Math.max(2, peak * 90);
+                            return <rect key={i} x={i} y={50 - h / 2} width={0.8} height={h} fill="rgb(134,239,172)" />;
+                          })}
+                        </svg>
+                      )}
                       {/* Left trim handle */}
                       <div className="absolute left-0 top-0 bottom-0 w-2.5 cursor-col-resize z-20 flex items-center justify-center hover:bg-green-400/30 rounded-l"
                         onPointerDown={(e) => {
@@ -1404,11 +1437,11 @@ export default function SoundTruckTTS() {
                           const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
                           window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
                         }}>
-                        <span className="text-[10px] text-green-200 font-bold truncate">ðŸŽ™ï¸ LocuÃ§Ã£o {ttsTrimStart > 0 ? `âœ‚${ttsTrimStart.toFixed(1)}s ` : ''}({ttsDuration.toFixed(1)}s)</span>
+                        <span className="text-[10px] text-green-200 font-bold truncate">🎙️ Locução {ttsTrimStart > 0 ? `✂${ttsTrimStart.toFixed(1)}s ` : ''}({ttsDuration.toFixed(1)}s)</span>
                         <input type="number" min="0" step="0.5" value={ttsStartTime}
                           onChange={(e) => { setTtsStartTime(Math.max(0, parseFloat(e.target.value) || 0)); mixedBufferRef.current = null; }}
                           className="w-14 bg-black/50 border border-green-500/30 rounded px-1.5 py-0.5 text-[9px] text-green-300 focus:outline-none text-center"
-                          title="PosiÃ§Ã£o na timeline (segundos)" />
+                          title="Posição na timeline (segundos)" />
                       </div>
 
                       {/* Right trim handle */}
@@ -1436,13 +1469,22 @@ export default function SoundTruckTTS() {
                   {/* Background music track - integrated controls */}
                   <div className="relative h-10 mb-1">
                     {selectedMusic ? (
-                      <div className="absolute inset-y-0 track-music rounded-lg flex items-center gap-0 group/music touch-none border border-blue-500/25"
+                      <div className="absolute inset-y-0 track-music rounded-lg flex items-center gap-0 group/music touch-none border border-blue-500/25 overflow-hidden"
                         style={{
                           left: `${(bgMusicStartTime / totalTimelineDuration) * 100}%`,
                           width: bgMusicEndTime !== null
                             ? `${((bgMusicEndTime - bgMusicStartTime) / totalTimelineDuration) * 100}%`
                             : `${((totalTimelineDuration - bgMusicStartTime) / totalTimelineDuration) * 100}%`,
                         }}>
+                        {/* Music waveform overlay */}
+                        {musicWaveform.length > 0 && (
+                          <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30" preserveAspectRatio="none" viewBox={`0 0 ${musicWaveform.length} 100`}>
+                            {musicWaveform.map((peak, i) => {
+                              const h = Math.max(2, peak * 90);
+                              return <rect key={i} x={i} y={50 - h / 2} width={0.8} height={h} fill="rgb(147,197,253)" />;
+                            })}
+                          </svg>
+                        )}
                         {/* Left trim handle */}
                         <div className="absolute left-0 top-0 bottom-0 w-2.5 cursor-col-resize z-20 flex items-center justify-center hover:bg-blue-400/30 rounded-l"
                           onPointerDown={(e) => {
@@ -1487,17 +1529,17 @@ export default function SoundTruckTTS() {
                             const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
                             window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
                           }}>
-                          <span className="text-[10px] text-blue-200 font-medium truncate">ðŸŽµ MÃºsica{bgMusicTrimStart > 0 ? ` âœ‚${bgMusicTrimStart.toFixed(1)}s` : ''}</span>
+                          <span className="text-[10px] text-blue-200 font-medium truncate">🎵 Música{bgMusicTrimStart > 0 ? ` ✂${bgMusicTrimStart.toFixed(1)}s` : ''}</span>
                           <input type="number" min="0" step="0.5" value={bgMusicStartTime}
                             onChange={(e) => { setBgMusicStartTime(Math.max(0, parseFloat(e.target.value) || 0)); mixedBufferRef.current = null; }}
                             className="w-12 bg-black/50 border border-blue-500/30 rounded px-1 py-0.5 text-[8px] text-blue-300 focus:outline-none text-center"
-                            title="InÃ­cio (s)" />
+                            title="Início (s)" />
                           <span className="text-[8px] text-blue-400/40">-</span>
                           <input type="number" min="0" step="0.5" value={bgMusicEndTime ?? ''}
-                            placeholder="âˆž"
+                            placeholder="∞"
                             onChange={(e) => { const v = parseFloat(e.target.value); setBgMusicEndTime(isNaN(v) ? null : Math.max(bgMusicStartTime + 0.5, v)); mixedBufferRef.current = null; }}
                             className="w-12 bg-black/50 border border-blue-500/30 rounded px-1 py-0.5 text-[8px] text-blue-300 focus:outline-none text-center placeholder:text-blue-400/20"
-                            title="Fim (s) â€” vazio = atÃ© o final" />
+                            title="Fim (s) — vazio = até o final" />
                           <input type="range" min="0" max="3" step="0.05" value={bgMusicVolume}
                             onChange={(e) => { setBgMusicVolume(parseFloat(e.target.value)); mixedBufferRef.current = null; }}
                             className="w-16 accent-blue-500 h-1" title={`Volume: ${Math.round(bgMusicVolume * 100)}%`} />
@@ -1533,14 +1575,14 @@ export default function SoundTruckTTS() {
                             <Music className="w-4 h-4 text-blue-400/60 shrink-0" />
                             <select className="bg-white/[0.06] border border-blue-500/20 rounded-lg text-xs text-white/70 px-3 py-1.5 cursor-pointer focus:outline-none interactive"
                               defaultValue="" onChange={(e) => { if (e.target.value) setSelectedMusic(e.target.value); }}>
-                              <option value="" disabled>Selecionar mÃºsica de fundo</option>
+                              <option value="" disabled>Selecionar música de fundo</option>
                               {savedMusics.map(m => <option key={m.name} value={m.url}>{m.name}</option>)}
                             </select>
                           </>
                         ) : (
                           <>
                             <Music className="w-4 h-4 text-blue-400/40 shrink-0" />
-                            <span className="text-xs text-blue-300/50">FaÃ§a upload de uma mÃºsica</span>
+                            <span className="text-xs text-blue-300/50">Faça upload de uma música</span>
                           </>
                         )}
                         <input type="file" accept="audio/*" className="hidden" id="bg-music-upload-inline"
@@ -1577,7 +1619,7 @@ export default function SoundTruckTTS() {
                               className={`absolute top-0 bottom-0 flex items-center touch-none ${isDragging ? 'z-20' : 'z-10'}`}
                               style={{ left: `${Math.min(leftPct, 92)}%` }}
                               onPointerDown={(e) => handleTimelineDragStart(e, item.id)}
-                              title={`${effName} @ ${item.startTime}s (vol ${Math.round(item.volume * 100)}%) â€” arraste para mover`}
+                              title={`${effName} @ ${item.startTime}s (vol ${Math.round(item.volume * 100)}%) — arraste para mover`}
                             >
                               <div className={`rounded-md px-2 py-1 flex items-center gap-1 cursor-grab active:cursor-grabbing interactive ${
                                 isDragging
@@ -1632,7 +1674,7 @@ export default function SoundTruckTTS() {
                 {/* Timeline Items List */}
                 <div className="space-y-1.5 mb-4 max-h-[180px] overflow-y-auto custom-scrollbar">
                   {timelineItems.length === 0 ? (
-                    <p className="text-[10px] text-white/20 text-center py-2">Nenhum efeito na timeline â€” adicione abaixo</p>
+                    <p className="text-[10px] text-white/20 text-center py-2">Nenhum efeito na timeline — adicione abaixo</p>
                   ) : (
                     timelineItems.map((item) => {
                       const builtInEff = SOUND_EFFECTS.find(e => e.id === item.sourceId);
@@ -1669,7 +1711,7 @@ export default function SoundTruckTTS() {
                               <button onClick={() => { setEditingItemId(item.id); setEditingField('volume'); setEditingValue(String(item.volume)); }}
                                 className="text-[9px] text-white/25 hover:text-white/40 cursor-pointer interactive"
                                 title="Clique para ajustar volume">
-                                ðŸ”Š {Math.round(item.volume * 100)}%
+                                🔊 {Math.round(item.volume * 100)}%
                               </button>
                             )}
                           </div>
@@ -1707,7 +1749,7 @@ export default function SoundTruckTTS() {
 
                     <div className="max-h-[200px] overflow-y-auto custom-scrollbar space-y-1">
                       {/* Built-in effects */}
-                      <p className="text-[9px] text-white/25 uppercase tracking-widest font-bold px-1 pt-1">PadrÃ£o</p>
+                      <p className="text-[9px] text-white/25 uppercase tracking-widest font-bold px-1 pt-1">Padrão</p>
                       {SOUND_EFFECTS.map(e => (
                         <button key={e.id}
                           onClick={() => setTlEffectId(e.id)}
@@ -1872,6 +1914,68 @@ export default function SoundTruckTTS() {
           </section>
         </div>
       </main>
+
+      {/* Donation Modal */}
+      <AnimatePresence>
+        {showDonation && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => setShowDonation(false)}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="glass-strong rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl border border-white/10"
+              onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Heart className="w-5 h-5 text-red-400" />
+                  <h3 className="text-base font-bold text-white">Apoie o Projeto</h3>
+                </div>
+                <button onClick={() => setShowDonation(false)} className="p-1 rounded-lg hover:bg-white/10 text-white/40 interactive">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3 text-sm text-white/70 leading-relaxed">
+                <p>
+                  Você já <span className="text-green-400 font-bold">economizou mais de R$ 30,00</span> que gastaria com um profissional para criar áudios para carro de som. 💰
+                </p>
+                <p>
+                  Este projeto é mantido de forma independente e com muito esforço, para que qualquer pessoa possa criar seus áudios profissionais <span className="text-white font-semibold">gratuitamente</span>.
+                </p>
+                <p>
+                  Com sua contribuição via <span className="text-green-400 font-bold">Pix</span>, podemos continuar desenvolvendo melhorias, novas vozes e funcionalidades. Cada doação faz a diferença! 🙏
+                </p>
+              </div>
+
+              <div className="bg-white/[0.04] border border-green-500/20 rounded-xl p-4 space-y-2">
+                <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Chave Pix</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-black/40 rounded-lg px-3 py-2 text-green-400 font-mono text-sm select-all">24974021588</code>
+                  <button onClick={() => { navigator.clipboard.writeText('24974021588'); toast.success('Chave Pix copiada!'); }}
+                    className="px-3 py-2 bg-green-500/20 border border-green-500/30 rounded-lg text-green-300 text-xs font-bold hover:bg-green-500/30 interactive">
+                    Copiar
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white/[0.04] border border-blue-500/20 rounded-xl p-4 space-y-2">
+                <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold">WhatsApp / Suporte</p>
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 text-green-400" />
+                  <span className="text-sm text-white/80 font-mono">24 97402-1588</span>
+                </div>
+                <p className="text-[11px] text-white/40 leading-relaxed">
+                  Parou de funcionar? Entre em contato para configurar sua chave de API. Juntos podemos criar uma comunidade poderosa de criação de áudio para carro de som!
+                </p>
+              </div>
+
+              <button onClick={() => setShowDonation(false)}
+                className="w-full py-3 bg-gradient-to-r from-green-600 to-green-500 rounded-xl text-sm font-bold interactive shadow-lg shadow-green-900/20">
+                Fechar
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
