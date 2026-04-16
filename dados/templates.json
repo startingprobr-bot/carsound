@@ -1,0 +1,32 @@
+[
+  {
+    "id": "1776294885345",
+    "name": "teste",
+    "items": [
+      {
+        "id": "1776294611792",
+        "type": "effect",
+        "sourceId": "keyboard",
+        "name": "Teclado Digitando",
+        "startTime": 4.5,
+        "volume": 0.7
+      }
+    ],
+    "bgMusicVolume": 0.56
+  },
+  {
+    "id": "1776298223833",
+    "name": "boa",
+    "items": [
+      {
+        "id": "1776298023923",
+        "type": "effect",
+        "sourceId": "cash_register",
+        "name": "Caixa Registradora",
+        "startTime": 0,
+        "volume": 0.8
+      }
+    ],
+    "bgMusicVolume": 1
+  }
+]
