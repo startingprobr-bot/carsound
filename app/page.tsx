@@ -1277,12 +1277,12 @@ export default function SoundTruckTTS() {
                         {VOICES.find(v => v.name === voice)?.gender === 'M' ? '♂' : '♀'}
                       </span>
                       <span className="text-white/90 font-medium">{voice}</span>
-                  {VOICES.find(v => v.name === voice)?.desc && (
-                    <span className="text-[9px] text-white/30">{VOICES.find(v => v.name === voice)?.desc}</span>
-                  )}
-                </div>
-                <svg className={`w-4 h-4 text-white/30 transition-transform ${showVoiceDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-              </button>
+                      {VOICES.find(v => v.name === voice)?.desc && (
+                        <span className="text-[9px] text-white/30">{VOICES.find(v => v.name === voice)?.desc}</span>
+                      )}
+                    </div>
+                    <svg className={`w-4 h-4 text-white/30 transition-transform ${showVoiceDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </button>
 
               {showVoiceDropdown && (
                 <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-[#141418] border border-white/[0.1] rounded-xl shadow-2xl shadow-black/60 max-h-[340px] overflow-y-auto custom-scrollbar">
@@ -1420,7 +1420,7 @@ export default function SoundTruckTTS() {
             </div>
           </div>
 
-          {/* === HISTORY === */
+          {/* === HISTORY === */}
           <div className="flex flex-col border-b border-white/[0.06]" style={{ maxHeight: '40vh' }}>
             <div className="p-4 pb-2 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
