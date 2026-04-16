@@ -2116,11 +2116,14 @@ export default function SoundTruckTTS() {
               </div>
 
               <div className="space-y-3 text-sm text-white/70 leading-relaxed">
-                <p>
-                  Você já <span className="text-green-400 font-bold">economizou mais de R$ 30,00</span> que gastaria com um profissional para criar áudios para carro de som. 💰
+                <p className="font-bold text-white/90">
+                  Curtiu a ferramenta? 💡
                 </p>
                 <p>
-                  Com sua contribuição via <span className="text-green-400 font-bold">Pix</span>, podemos continuar desenvolvendo melhorias, novas vozes e funcionalidades. 🙏
+                  Ela é — e continuará sendo — <span className="text-green-400 font-bold">100% gratuita</span>, independente de você apoiar ou não. Se ela está ajudando você a ganhar dinheiro, considere retribuir com um <span className="text-green-400 font-bold">Pix</span> (único ou mensal) do valor que você achar justo.
+                </p>
+                <p>
+                  Esse reconhecimento é o que me motiva a dedicar tempo para criar novas funções e trazer vozes melhores. Apoie apenas se fizer sentido para você! 🚀
                 </p>
               </div>
 
