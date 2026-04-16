@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Volume2, Play, Music, History,
   ListMusic, Trash2, Download, Plus, Pause, Square, Upload,
-  Mic2, Zap, Clock, X, Check, Timer, Headphones, Save, FolderOpen, Heart, MessageCircle
+  Mic2, Zap, Clock, X, Check, Timer, Headphones, Save, FolderOpen, Heart, MessageCircle, ChevronDown, Sliders
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast, Toaster } from 'sonner';
@@ -168,6 +168,15 @@ export default function SoundTruckTTS() {
   const [isSubmittingKey, setIsSubmittingKey] = useState(false);
   const [communityKeyCount, setCommunityKeyCount] = useState(0);
 
+  // --- Selected track & collapsible ---
+  const [selectedTrack, setSelectedTrack] = useState<'tts' | 'music' | string | null>(null);
+  const [sectionOpen, setSectionOpen] = useState({ text: true, voice: true, entonation: true });
+  const [likeCount, setLikeCount] = useState(0);
+  const [hasLiked, setHasLiked] = useState(false);
+
+  // --- Real-time playback gain ---
+  const mixGainRef = useRef<GainNode | null>(null);
+
   const extractPeaks = (data: Float32Array | Int16Array, numBars: number): number[] => {
     const peaks: number[] = [];
     const step = Math.max(1, Math.floor(data.length / numBars));
@@ -193,6 +202,8 @@ export default function SoundTruckTTS() {
     loadMusics();
     loadCustomEffects();
     fetch('/api/keys').then(r => r.json()).then(d => setCommunityKeyCount(d.count || 0)).catch(() => {});
+    fetch('/api/likes').then(r => r.json()).then(d => setLikeCount(d.count || 0)).catch(() => {});
+    setHasLiked(localStorage.getItem('carro_som_liked') === '1');
   }, []);
 
   const submitCommunityKey = async () => {
@@ -219,11 +230,33 @@ export default function SoundTruckTTS() {
     }
   };
 
-  // Keep bgMusic gain in sync with volume slider
+  const handleLike = async () => {
+    // Always open donation modal
+    setShowDonation(true);
+    if (hasLiked) return;
+    // Simple browser fingerprint
+    const fp = btoa(navigator.userAgent + screen.width + screen.height + navigator.language).slice(0, 32);
+    try {
+      const res = await fetch('/api/likes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fp }),
+      });
+      const data = await res.json();
+      setLikeCount(data.count);
+      if (!data.alreadyLiked) {
+        setHasLiked(true);
+        localStorage.setItem('carro_som_liked', '1');
+      }
+    } catch {}
+  };
+
+  // Keep bgMusic gain in sync with volume slider — invalidate mix cache for re-render
   useEffect(() => {
     if (bgGainRef.current) {
       bgGainRef.current.gain.value = bgMusicVolume;
     }
+    mixedBufferRef.current = null;
   }, [bgMusicVolume]);
 
   // Extract music waveform when music is selected
@@ -827,8 +860,13 @@ export default function SoundTruckTTS() {
     try {
       const source = ctx.createBufferSource();
       source.buffer = mixed;
-      source.connect(ctx.destination);
+      // Route through master gain for real-time volume control
+      const masterGain = ctx.createGain();
+      masterGain.gain.value = 1.0;
+      source.connect(masterGain);
+      masterGain.connect(ctx.destination);
       mixSourceRef.current = source;
+      mixGainRef.current = masterGain;
 
       const mixDuration = mixed.duration;
       const resumeFrom = playheadRef.current;
@@ -1034,8 +1072,9 @@ export default function SoundTruckTTS() {
             <h1 className="text-lg font-black tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">Carro de Som</h1>
             <p className="text-[10px] text-white/30 uppercase tracking-[0.2em]">Sound Truck Engine v2.0</p>
           </div>
-          <button onClick={() => setShowDonation(true)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-red-400 interactive animate-heartbeat" title="Apoie o projeto">
+          <button onClick={handleLike} className="flex items-center gap-1.5 p-1.5 rounded-lg hover:bg-white/[0.06] text-red-400 interactive animate-heartbeat" title="Apoie o projeto">
             <Heart className="w-3.5 h-3.5 fill-red-400" />
+            {likeCount > 0 && <span className="text-[9px] font-mono text-red-400/70">{likeCount}</span>}
           </button>
         </div>
         {/* Timecode display */}
@@ -1074,35 +1113,51 @@ export default function SoundTruckTTS() {
         <aside className="w-80 min-w-[320px] flex flex-col border-r border-white/[0.06] bg-black/20 overflow-y-auto custom-scrollbar">
 
           {/* === TEXT INPUT === */}
-          <div className="p-4 border-b border-white/[0.06]">
-            <div className="flex items-center justify-between mb-3">
+          <div className="border-b border-white/[0.06]">
+            <button onClick={() => setSectionOpen(p => ({ ...p, text: !p.text }))} className="w-full p-4 flex items-center justify-between hover:bg-white/[0.02] interactive">
               <div className="flex items-center gap-2">
                 <Mic2 className="w-4 h-4 text-green-400" />
                 <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/60">Texto para Locução</h2>
               </div>
-              <span className="text-[9px] text-white/30 font-mono">{text.length} caracteres</span>
-            </div>
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Digite o anúncio aqui... (ex: ATENÇÃO! OFERTA IMPERDÍVEL!)"
-              className="w-full h-28 bg-white/[0.04] border border-white/[0.08] rounded-xl p-3 text-sm text-white/90 focus:outline-none focus:border-green-500/50 focus:bg-white/[0.06] transition-all resize-none placeholder:text-white/20"
-            />
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] text-white/30 font-mono">{text.length} chars</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-white/30 transition-transform ${sectionOpen.text ? '' : '-rotate-90'}`} />
+              </div>
+            </button>
+            {sectionOpen.text && (
+              <div className="px-4 pb-4">
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder="Digite o anúncio aqui... (ex: ATENÇÃO! OFERTA IMPERDÍVEL!)"
+                  className="w-full h-28 bg-white/[0.04] border border-white/[0.08] rounded-xl p-3 text-sm text-white/90 focus:outline-none focus:border-green-500/50 focus:bg-white/[0.06] transition-all resize-none placeholder:text-white/20"
+                />
+              </div>
+            )}
           </div>
 
           {/* === VOICE SELECTOR (Dropdown) === */}
-          <div className="p-4 border-b border-white/[0.06]">
-            <label className="text-[10px] uppercase tracking-[0.15em] text-white/40 font-bold mb-2 block">
-              Voz do Locutor
-            </label>
-            <div className="relative" ref={voiceDropdownRef}>
-              <button onClick={() => setShowVoiceDropdown(!showVoiceDropdown)}
-                className="w-full flex items-center justify-between bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm interactive hover:bg-white/[0.06] hover:border-white/[0.12]">
-                <div className="flex items-center gap-2">
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${VOICES.find(v => v.name === voice)?.gender === 'M' ? 'bg-blue-500/20 text-blue-300' : 'bg-pink-500/20 text-pink-300'}`}>
-                    {VOICES.find(v => v.name === voice)?.gender === 'M' ? '♂' : '♀'}
-                  </span>
-                  <span className="text-white/90 font-medium">{voice}</span>
+          <div className="border-b border-white/[0.06]">
+            <button onClick={() => setSectionOpen(p => ({ ...p, voice: !p.voice }))} className="w-full p-4 flex items-center justify-between hover:bg-white/[0.02] interactive">
+              <div className="flex items-center gap-2">
+                <Volume2 className="w-4 h-4 text-green-400" />
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/60">Voz do Locutor</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] text-green-400/60 font-mono">{voice}</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-white/30 transition-transform ${sectionOpen.voice ? '' : '-rotate-90'}`} />
+              </div>
+            </button>
+            {sectionOpen.voice && (
+              <div className="px-4 pb-4">
+                <div className="relative" ref={voiceDropdownRef}>
+                  <button onClick={() => setShowVoiceDropdown(!showVoiceDropdown)}
+                    className="w-full flex items-center justify-between bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm interactive hover:bg-white/[0.06] hover:border-white/[0.12]">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${VOICES.find(v => v.name === voice)?.gender === 'M' ? 'bg-blue-500/20 text-blue-300' : 'bg-pink-500/20 text-pink-300'}`}>
+                        {VOICES.find(v => v.name === voice)?.gender === 'M' ? '♂' : '♀'}
+                      </span>
+                      <span className="text-white/90 font-medium">{voice}</span>
                   {VOICES.find(v => v.name === voice)?.desc && (
                     <span className="text-[9px] text-white/30">{VOICES.find(v => v.name === voice)?.desc}</span>
                   )}
@@ -1170,10 +1225,24 @@ export default function SoundTruckTTS() {
                 </div>
               )}
             </div>
+              </div>
+            )}
           </div>
 
           {/* === ENTONAÇÃO + VELOCIDADE === */}
-          <div className="p-4 border-b border-white/[0.06]">
+          <div className="border-b border-white/[0.06]">
+            <button onClick={() => setSectionOpen(p => ({ ...p, entonation: !p.entonation }))} className="w-full p-4 flex items-center justify-between hover:bg-white/[0.02] interactive">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-green-400" />
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/60">Entonação & Velocidade</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] text-green-400/60 font-mono">{TTS_STYLES.find(s => s.id === ttsStyle)?.label} · {speed.toFixed(1)}x</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-white/30 transition-transform ${sectionOpen.entonation ? '' : '-rotate-90'}`} />
+              </div>
+            </button>
+            {sectionOpen.entonation && (
+              <div className="px-4 pb-4">
             <label className="text-[10px] uppercase tracking-[0.15em] text-white/40 font-bold mb-2 block">
               Entonação da Voz
             </label>
@@ -1200,6 +1269,8 @@ export default function SoundTruckTTS() {
             <div className="flex justify-between text-[9px] text-white/20 mt-1">
               <span>Lento</span><span>Rápido</span>
             </div>
+              </div>
+            )}
           </div>
 
           {/* === GERAR / IMPORTAR / DOWNLOAD === */}
@@ -1229,6 +1300,121 @@ export default function SoundTruckTTS() {
               )}
             </div>
           </div>
+
+          {/* === SELECTED TRACK PROPERTIES === */}
+          <AnimatePresence>
+            {selectedTrack && lastGeneratedPcm && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                className="border-b border-white/[0.06] overflow-hidden">
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-green-400" />
+                      <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/60">
+                        {selectedTrack === 'tts' ? 'Locução' : selectedTrack === 'music' ? 'Música de Fundo' : 'Efeito Sonoro'}
+                      </h2>
+                    </div>
+                    <button onClick={() => setSelectedTrack(null)} className="p-1 rounded-lg hover:bg-white/10 text-white/30 interactive">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {selectedTrack === 'tts' && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold block mb-1">Posição (s)</label>
+                        <input type="number" min="0" step="0.5" value={ttsStartTime}
+                          onChange={(e) => { setTtsStartTime(Math.max(0, parseFloat(e.target.value) || 0)); mixedBufferRef.current = null; }}
+                          className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-green-500/40 interactive" />
+                      </div>
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold flex justify-between mb-1">
+                          Velocidade <span className="text-green-400/80">{speed.toFixed(2)}x</span>
+                        </label>
+                        <input type="range" min="0.5" max="2.0" step="0.1" value={speed}
+                          onChange={(e) => { setSpeed(parseFloat(e.target.value)); mixedBufferRef.current = null; }}
+                          className="w-full accent-green-500" />
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-white/40">
+                        <span>Duração: <span className="text-green-400/70 font-mono">{ttsDuration.toFixed(1)}s</span></span>
+                        {ttsTrimStart > 0 && <span>Trim: <span className="text-yellow-400/70 font-mono">{ttsTrimStart.toFixed(1)}s</span></span>}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedTrack === 'music' && selectedMusic && (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold block mb-1">Início (s)</label>
+                          <input type="number" min="0" step="0.5" value={bgMusicStartTime}
+                            onChange={(e) => { setBgMusicStartTime(Math.max(0, parseFloat(e.target.value) || 0)); mixedBufferRef.current = null; }}
+                            className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-blue-500/40 interactive" />
+                        </div>
+                        <div>
+                          <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold block mb-1">Fim (s)</label>
+                          <input type="number" min="0" step="0.5" value={bgMusicEndTime ?? ''}
+                            placeholder="∞"
+                            onChange={(e) => { const v = parseFloat(e.target.value); setBgMusicEndTime(isNaN(v) ? null : Math.max(bgMusicStartTime + 0.5, v)); mixedBufferRef.current = null; }}
+                            className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-blue-500/40 interactive placeholder:text-white/15" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold flex justify-between mb-1">
+                          Volume <span className={`${bgMusicVolume > 1 ? 'text-yellow-400' : 'text-blue-400/80'}`}>{Math.round(bgMusicVolume * 100)}%</span>
+                        </label>
+                        <input type="range" min="0" max="3" step="0.05" value={bgMusicVolume}
+                          onChange={(e) => { setBgMusicVolume(parseFloat(e.target.value)); mixedBufferRef.current = null; }}
+                          className="w-full accent-blue-500" />
+                      </div>
+                      <button onClick={() => { setSelectedMusic(null); setBgMusicTrimStart(0); setBgMusicStartTime(0); setBgMusicEndTime(null); setSelectedTrack(null); mixedBufferRef.current = null; }}
+                        className="w-full py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[10px] text-red-400/70 hover:bg-red-500/20 interactive">
+                        Remover Música
+                      </button>
+                    </div>
+                  )}
+
+                  {selectedTrack?.startsWith('effect:') && (() => {
+                    const effectId = selectedTrack.replace('effect:', '');
+                    const item = timelineItems.find(i => i.id === effectId);
+                    if (!item) return null;
+                    const builtInEff = SOUND_EFFECTS.find(e => e.id === item.sourceId);
+                    const customEff = customEffects.find(e => e.id === item.sourceId);
+                    const effName = builtInEff?.name ?? customEff?.name ?? item.name;
+                    return (
+                      <div className="space-y-3">
+                        <div className="text-[10px] text-white/50 font-medium">{effName}</div>
+                        <div>
+                          <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold block mb-1">Posição (s)</label>
+                          <input type="number" min="0" step="0.5" value={item.startTime}
+                            onChange={(e) => { updateTimelineItem(item.id, 'startTime', parseFloat(e.target.value) || 0); }}
+                            className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-green-500/40 interactive" />
+                        </div>
+                        <div>
+                          <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold flex justify-between mb-1">
+                            Volume <span className={`${item.volume > 1 ? 'text-yellow-400' : 'text-green-400/80'}`}>{Math.round(item.volume * 100)}%</span>
+                          </label>
+                          <input type="range" min="0" max="3" step="0.05" value={item.volume}
+                            onChange={(e) => { updateTimelineItem(item.id, 'volume', parseFloat(e.target.value)); }}
+                            className="w-full accent-green-500" />
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => previewTimelineEffect(item.sourceId)}
+                            className="flex-1 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-[10px] text-white/50 hover:text-green-400 interactive flex items-center justify-center gap-1">
+                            <Headphones className="w-3 h-3" /> Ouvir
+                          </button>
+                          <button onClick={() => { removeTimelineItem(item.id); setSelectedTrack(null); }}
+                            className="flex-1 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[10px] text-red-400/70 hover:bg-red-500/20 interactive">
+                            Remover
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* === HISTORY === */}
           <div className="flex flex-col border-b border-white/[0.06]" style={{ maxHeight: '40vh' }}>
@@ -1414,14 +1600,15 @@ export default function SoundTruckTTS() {
 
                   {/* TTS track - draggable with trim handles */}
                   <div className="relative h-10 mb-1">
-                    <div className="absolute inset-y-0 track-tts rounded-lg flex items-center gap-0 touch-none border border-green-500/25 overflow-hidden"
-                      style={{ left: `${(ttsStartTime / totalTimelineDuration) * 100}%`, width: `${(ttsDuration / totalTimelineDuration) * 100}%` }}>
+                    <div className={`absolute inset-y-0 track-tts rounded-lg flex items-center gap-0 touch-none overflow-hidden ${selectedTrack === 'tts' ? 'border-2 border-green-400 shadow-lg shadow-green-500/20' : 'border border-green-500/25'}`}
+                      style={{ left: `${(ttsStartTime / totalTimelineDuration) * 100}%`, width: `${(ttsDuration / totalTimelineDuration) * 100}%` }}
+                      onClick={() => setSelectedTrack(selectedTrack === 'tts' ? null : 'tts')}>
                       {/* Waveform overlay */}
                       {ttsWaveform.length > 0 && (
-                        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-40" preserveAspectRatio="none" viewBox={`0 0 ${ttsWaveform.length} 100`}>
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-50" preserveAspectRatio="none" viewBox={`0 0 ${ttsWaveform.length} 100`}>
                           {ttsWaveform.map((peak, i) => {
-                            const h = Math.max(2, peak * 90);
-                            return <rect key={i} x={i} y={50 - h / 2} width={0.8} height={h} fill="rgb(134,239,172)" />;
+                            const h = Math.max(1, peak * 90);
+                            return <line key={i} x1={i + 0.5} y1={50 - h / 2} x2={i + 0.5} y2={50 + h / 2} stroke="rgb(134,239,172)" strokeWidth={0.4} />;
                           })}
                         </svg>
                       )}
@@ -1451,7 +1638,6 @@ export default function SoundTruckTTS() {
                       {/* Center drag area */}
                       <div className="flex-1 flex items-center px-3 gap-2 cursor-grab active:cursor-grabbing min-w-0"
                         onPointerDown={(e) => {
-                          if ((e.target as HTMLElement).closest('input')) return;
                           e.preventDefault();
                           const bar = timelineBarRef.current; if (!bar) return;
                           const startX = e.clientX; const origStart = ttsStartTime;
@@ -1466,10 +1652,6 @@ export default function SoundTruckTTS() {
                           window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
                         }}>
                         <span className="text-[10px] text-green-200 font-bold truncate">🎙️ Locução {ttsTrimStart > 0 ? `✂${ttsTrimStart.toFixed(1)}s ` : ''}({ttsDuration.toFixed(1)}s)</span>
-                        <input type="number" min="0" step="0.5" value={ttsStartTime}
-                          onChange={(e) => { setTtsStartTime(Math.max(0, parseFloat(e.target.value) || 0)); mixedBufferRef.current = null; }}
-                          className="w-14 bg-black/50 border border-green-500/30 rounded px-1.5 py-0.5 text-[9px] text-green-300 focus:outline-none text-center"
-                          title="Posição na timeline (segundos)" />
                       </div>
 
                       {/* Right trim handle */}
@@ -1497,19 +1679,21 @@ export default function SoundTruckTTS() {
                   {/* Background music track - integrated controls */}
                   <div className="relative h-10 mb-1">
                     {selectedMusic ? (
-                      <div className="absolute inset-y-0 track-music rounded-lg flex items-center gap-0 group/music touch-none border border-blue-500/25 overflow-hidden"
+                      <div className={`absolute inset-y-0 track-music rounded-lg flex items-center gap-0 group/music touch-none overflow-hidden ${selectedTrack === 'music' ? 'border-2 border-blue-400 shadow-lg shadow-blue-500/20' : 'border border-blue-500/25'}`}
                         style={{
                           left: `${(bgMusicStartTime / totalTimelineDuration) * 100}%`,
                           width: bgMusicEndTime !== null
                             ? `${((bgMusicEndTime - bgMusicStartTime) / totalTimelineDuration) * 100}%`
                             : `${((totalTimelineDuration - bgMusicStartTime) / totalTimelineDuration) * 100}%`,
-                        }}>
-                        {/* Music waveform overlay */}
+                        }}
+                        onClick={() => setSelectedTrack(selectedTrack === 'music' ? null : 'music')}>
+                        {/* Music waveform overlay - scales with volume */}
                         {musicWaveform.length > 0 && (
-                          <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30" preserveAspectRatio="none" viewBox={`0 0 ${musicWaveform.length} 100`}>
+                          <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-40" preserveAspectRatio="none" viewBox={`0 0 ${musicWaveform.length} 100`}>
                             {musicWaveform.map((peak, i) => {
-                              const h = Math.max(2, peak * 90);
-                              return <rect key={i} x={i} y={50 - h / 2} width={0.8} height={h} fill="rgb(147,197,253)" />;
+                              const volScale = Math.min(bgMusicVolume / 1, 1);
+                              const h = Math.max(1, peak * 90 * volScale);
+                              return <line key={i} x1={i + 0.5} y1={50 - h / 2} x2={i + 0.5} y2={50 + h / 2} stroke="rgb(147,197,253)" strokeWidth={0.4} />;
                             })}
                           </svg>
                         )}
@@ -1557,21 +1741,8 @@ export default function SoundTruckTTS() {
                             const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
                             window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
                           }}>
-                          <span className="text-[10px] text-blue-200 font-medium truncate">🎵 Música{bgMusicTrimStart > 0 ? ` ✂${bgMusicTrimStart.toFixed(1)}s` : ''}</span>
-                          <input type="number" min="0" step="0.5" value={bgMusicStartTime}
-                            onChange={(e) => { setBgMusicStartTime(Math.max(0, parseFloat(e.target.value) || 0)); mixedBufferRef.current = null; }}
-                            className="w-12 bg-black/50 border border-blue-500/30 rounded px-1 py-0.5 text-[8px] text-blue-300 focus:outline-none text-center"
-                            title="Início (s)" />
-                          <span className="text-[8px] text-blue-400/40">-</span>
-                          <input type="number" min="0" step="0.5" value={bgMusicEndTime ?? ''}
-                            placeholder="∞"
-                            onChange={(e) => { const v = parseFloat(e.target.value); setBgMusicEndTime(isNaN(v) ? null : Math.max(bgMusicStartTime + 0.5, v)); mixedBufferRef.current = null; }}
-                            className="w-12 bg-black/50 border border-blue-500/30 rounded px-1 py-0.5 text-[8px] text-blue-300 focus:outline-none text-center placeholder:text-blue-400/20"
-                            title="Fim (s) — vazio = até o final" />
-                          <input type="range" min="0" max="3" step="0.05" value={bgMusicVolume}
-                            onChange={(e) => { setBgMusicVolume(parseFloat(e.target.value)); mixedBufferRef.current = null; }}
-                            className="w-16 accent-blue-500 h-1" title={`Volume: ${Math.round(bgMusicVolume * 100)}%`} />
-                          <span className={`text-[9px] w-8 text-right font-mono ${bgMusicVolume > 1 ? 'text-yellow-400' : 'text-blue-300/60'}`}>{Math.round(bgMusicVolume * 100)}%</span>
+                          <span className="text-[10px] text-blue-200 font-medium truncate">🎵 Música{bgMusicTrimStart > 0 ? ` ✂${bgMusicTrimStart.toFixed(1)}s` : ''} ({bgMusicStartTime.toFixed(1)}s)</span>
+                          <span className={`text-[9px] ml-auto font-mono ${bgMusicVolume > 1 ? 'text-yellow-400' : 'text-blue-300/60'}`}>{Math.round(bgMusicVolume * 100)}%</span>
                           <button onClick={() => { setSelectedMusic(null); setBgMusicTrimStart(0); setBgMusicStartTime(0); setBgMusicEndTime(null); mixedBufferRef.current = null; }} className="text-blue-400/50 hover:text-red-400">
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -1642,15 +1813,19 @@ export default function SoundTruckTTS() {
                           const custEff = customEffects.find(e => e.id === item.sourceId);
                           const effName = builtEff?.name ?? custEff?.name ?? item.name;
                           const isDragging = draggingItem === item.id;
+                          const isSelected = selectedTrack === `effect:${item.id}`;
                           return (
                             <div key={item.id}
                               className={`absolute top-0 bottom-0 flex items-center touch-none ${isDragging ? 'z-20' : 'z-10'}`}
                               style={{ left: `${Math.min(leftPct, 92)}%` }}
                               onPointerDown={(e) => handleTimelineDragStart(e, item.id)}
-                              title={`${effName} @ ${item.startTime}s (vol ${Math.round(item.volume * 100)}%) — arraste para mover`}
+                              onClick={() => setSelectedTrack(isSelected ? null : `effect:${item.id}`)}
+                              title={`${effName} @ ${item.startTime}s (vol ${Math.round(item.volume * 100)}%) — clique para editar`}
                             >
                               <div className={`rounded-md px-2 py-1 flex items-center gap-1 cursor-grab active:cursor-grabbing interactive ${
-                                isDragging
+                                isSelected
+                                  ? 'bg-green-500/30 border-2 border-green-400 shadow-lg shadow-green-500/20'
+                                  : isDragging
                                   ? 'bg-green-500/30 border-2 border-green-400 scale-110 shadow-lg shadow-green-500/20'
                                   : 'bg-green-500/15 border border-green-500/30 hover:bg-green-500/25'
                               }`}>
@@ -1699,65 +1874,27 @@ export default function SoundTruckTTS() {
                   )}
                 </div>
 
-                {/* Timeline Items List */}
-                <div className="space-y-1.5 mb-4 max-h-[180px] overflow-y-auto custom-scrollbar">
-                  {timelineItems.length === 0 ? (
-                    <p className="text-[10px] text-white/20 text-center py-2">Nenhum efeito na timeline — adicione abaixo</p>
-                  ) : (
-                    timelineItems.map((item) => {
+                {/* Timeline Items List — compact, click to select */}
+                {timelineItems.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-4">
+                    {timelineItems.map((item) => {
                       const builtInEff = SOUND_EFFECTS.find(e => e.id === item.sourceId);
                       const customEff = customEffects.find(e => e.id === item.sourceId);
                       const effName = builtInEff?.name ?? customEff?.name ?? item.name;
-                      const isEditingTime = editingItemId === item.id && editingField === 'time';
-                      const isEditingVol = editingItemId === item.id && editingField === 'volume';
+                      const isSelected = selectedTrack === `effect:${item.id}`;
                       return (
-                        <div key={item.id} className="flex items-center justify-between bg-white/[0.04] border border-white/[0.08] rounded-lg p-2.5 group hover:border-green-500/25 interactive">
-                          <div className="flex items-center gap-2">
-                            <Volume2 className="w-3.5 h-3.5 text-green-400/60" />
-                            <span className="text-xs text-white/90">{effName}</span>
-                            {isEditingTime ? (
-                              <input type="number" min="0" step="0.5" value={editingValue} autoFocus
-                                className="w-16 bg-black border border-green-500/50 rounded px-1.5 py-0.5 text-[9px] text-green-400 focus:outline-none"
-                                onChange={(e) => setEditingValue(e.target.value)}
-                                onBlur={() => { updateTimelineItem(item.id, 'startTime', parseFloat(editingValue) || 0); setEditingItemId(null); setEditingField(null); }}
-                                onKeyDown={(e) => { if (e.key === 'Enter') { updateTimelineItem(item.id, 'startTime', parseFloat(editingValue) || 0); setEditingItemId(null); setEditingField(null); } }}
-                              />
-                            ) : (
-                              <button onClick={() => { setEditingItemId(item.id); setEditingField('time'); setEditingValue(item.startTime.toFixed(1)); }}
-                                className="text-[9px] bg-green-500/10 text-green-300/70 px-2 py-0.5 rounded hover:bg-green-500/20 cursor-text"
-                                title="Clique para editar o tempo">
-                                {item.startTime.toFixed(1)}s
-                              </button>
-                            )}
-                            {isEditingVol ? (
-                              <input type="range" min="0" max="3" step="0.05" value={editingValue}
-                                className="w-20 accent-green-500"
-                                onChange={(e) => { setEditingValue(e.target.value); updateTimelineItem(item.id, 'volume', parseFloat(e.target.value)); }}
-                                onBlur={() => { setEditingItemId(null); setEditingField(null); }}
-                              />
-                            ) : (
-                              <button onClick={() => { setEditingItemId(item.id); setEditingField('volume'); setEditingValue(String(item.volume)); }}
-                                className="text-[9px] text-white/25 hover:text-white/40 cursor-pointer interactive"
-                                title="Clique para ajustar volume">
-                                🔊 {Math.round(item.volume * 100)}%
-                              </button>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => previewTimelineEffect(item.sourceId)}
-                              className="p-1.5 hover:bg-green-500/20 rounded text-white/25 hover:text-green-400 interactive">
-                              <Play className="w-3.5 h-3.5 fill-current" />
-                            </button>
-                            <button onClick={() => removeTimelineItem(item.id)}
-                              className="p-1.5 hover:bg-red-500/20 rounded text-white/25 hover:text-red-400 interactive">
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
+                        <button key={item.id} onClick={() => setSelectedTrack(isSelected ? null : `effect:${item.id}`)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] interactive ${
+                            isSelected ? 'bg-green-500/20 border border-green-500/40 text-green-300' : 'bg-white/[0.04] border border-white/[0.08] text-white/50 hover:text-white/70'
+                          }`}>
+                          <Volume2 className="w-3 h-3" />
+                          <span className="font-medium">{effName}</span>
+                          <span className="text-white/25 font-mono">{item.startTime.toFixed(1)}s</span>
+                        </button>
                       );
-                    })
-                  )}
-                </div>
+                    })}
+                  </div>
+                )}
 
                 {/* Add Effect to Timeline */}
                 {showAddTimeline ? (
