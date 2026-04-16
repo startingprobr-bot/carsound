@@ -164,6 +164,9 @@ export default function SoundTruckTTS() {
   const [ttsWaveform, setTtsWaveform] = useState<number[]>([]);
   const [musicWaveform, setMusicWaveform] = useState<number[]>([]);
   const [showDonation, setShowDonation] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [isSubmittingKey, setIsSubmittingKey] = useState(false);
+  const [communityKeyCount, setCommunityKeyCount] = useState(0);
 
   const extractPeaks = (data: Float32Array | Int16Array, numBars: number): number[] => {
     const peaks: number[] = [];
@@ -189,7 +192,32 @@ export default function SoundTruckTTS() {
     loadData();
     loadMusics();
     loadCustomEffects();
+    fetch('/api/keys').then(r => r.json()).then(d => setCommunityKeyCount(d.count || 0)).catch(() => {});
   }, []);
+
+  const submitCommunityKey = async () => {
+    if (!apiKeyInput.trim()) return;
+    setIsSubmittingKey(true);
+    try {
+      const res = await fetch('/api/keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: apiKeyInput.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success('Chave adicionada com sucesso! Obrigado por contribuir 🎉');
+        setApiKeyInput('');
+        setCommunityKeyCount(data.count || communityKeyCount + 1);
+      } else {
+        toast.error(data.error || 'Erro ao adicionar chave');
+      }
+    } catch {
+      toast.error('Erro de conexão');
+    } finally {
+      setIsSubmittingKey(false);
+    }
+  };
 
   // Keep bgMusic gain in sync with volume slider
   useEffect(() => {
@@ -1006,8 +1034,8 @@ export default function SoundTruckTTS() {
             <h1 className="text-lg font-black tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">Carro de Som</h1>
             <p className="text-[10px] text-white/30 uppercase tracking-[0.2em]">Sound Truck Engine v2.0</p>
           </div>
-          <button onClick={() => setShowDonation(true)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-white/20 hover:text-red-400 interactive" title="Apoie o projeto">
-            <Heart className="w-3.5 h-3.5" />
+          <button onClick={() => setShowDonation(true)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-red-400 interactive animate-heartbeat" title="Apoie o projeto">
+            <Heart className="w-3.5 h-3.5 fill-red-400" />
           </button>
         </div>
         {/* Timecode display */}
@@ -1922,16 +1950,22 @@ export default function SoundTruckTTS() {
             className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
             onClick={() => setShowDonation(false)}>
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="glass-strong rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl border border-white/10"
+              className="glass-strong rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl border border-white/10 max-h-[90vh] overflow-y-auto custom-scrollbar"
               onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Heart className="w-5 h-5 text-red-400" />
                   <h3 className="text-base font-bold text-white">Apoie o Projeto</h3>
                 </div>
-                <button onClick={() => setShowDonation(false)} className="p-1 rounded-lg hover:bg-white/10 text-white/40 interactive">
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <a href="https://wa.me/5524974021588" target="_blank" rel="noopener noreferrer"
+                    className="p-2 rounded-lg bg-green-600/20 hover:bg-green-600/40 text-green-400 interactive" title="WhatsApp">
+                    <MessageCircle className="w-4 h-4" />
+                  </a>
+                  <button onClick={() => setShowDonation(false)} className="p-1 rounded-lg hover:bg-white/10 text-white/40 interactive">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-3 text-sm text-white/70 leading-relaxed">
@@ -1939,13 +1973,11 @@ export default function SoundTruckTTS() {
                   Você já <span className="text-green-400 font-bold">economizou mais de R$ 30,00</span> que gastaria com um profissional para criar áudios para carro de som. 💰
                 </p>
                 <p>
-                  Este projeto é mantido de forma independente e com muito esforço, para que qualquer pessoa possa criar seus áudios profissionais <span className="text-white font-semibold">gratuitamente</span>.
-                </p>
-                <p>
-                  Com sua contribuição via <span className="text-green-400 font-bold">Pix</span>, podemos continuar desenvolvendo melhorias, novas vozes e funcionalidades. Cada doação faz a diferença! 🙏
+                  Com sua contribuição via <span className="text-green-400 font-bold">Pix</span>, podemos continuar desenvolvendo melhorias, novas vozes e funcionalidades. 🙏
                 </p>
               </div>
 
+              {/* Pix */}
               <div className="bg-white/[0.04] border border-green-500/20 rounded-xl p-4 space-y-2">
                 <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Chave Pix</p>
                 <div className="flex items-center gap-2">
@@ -1957,15 +1989,49 @@ export default function SoundTruckTTS() {
                 </div>
               </div>
 
-              <div className="bg-white/[0.04] border border-blue-500/20 rounded-xl p-4 space-y-2">
-                <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold">WhatsApp / Suporte</p>
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="w-4 h-4 text-green-400" />
-                  <span className="text-sm text-white/80 font-mono">24 97402-1588</span>
+              {/* Community API Keys */}
+              <div className="bg-white/[0.04] border border-purple-500/20 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold">🔑 Chave de API Comunitária</p>
+                  {communityKeyCount > 0 && (
+                    <span className="text-[9px] bg-green-500/15 text-green-400 px-2 py-0.5 rounded-full font-mono">{communityKeyCount} chave{communityKeyCount > 1 ? 's' : ''}</span>
+                  )}
                 </div>
-                <p className="text-[11px] text-white/40 leading-relaxed">
-                  Parou de funcionar? Entre em contato para configurar sua chave de API. Juntos podemos criar uma comunidade poderosa de criação de áudio para carro de som!
+                <p className="text-[11px] text-white/50 leading-relaxed">
+                  O sistema usa a API gratuita do Google Gemini para gerar vozes. Cada chave tem um <span className="text-yellow-400">limite de ~10 gerações por dia</span>. Quando uma chave esgota, o sistema tenta a próxima automaticamente.
                 </p>
+                <p className="text-[11px] text-white/50 leading-relaxed">
+                  <span className="text-white/70 font-semibold">Quanto mais chaves, mais forte a comunidade!</span> Contribua com sua chave gratuita e ajude todos a criar áudios sem parar:
+                </p>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="text-white/40">1.</span>
+                  <span className="text-white/60">Acesse</span>
+                  <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300 underline underline-offset-2 interactive">
+                    aistudio.google.com/apikey
+                  </a>
+                </div>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="text-white/40">2.</span>
+                  <span className="text-white/60">Crie uma chave gratuita (precisa de conta Google)</span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="text-white/40">3.</span>
+                  <span className="text-white/60">Cole abaixo e pronto — você ajuda toda a comunidade!</span>
+                </div>
+                <div className="flex gap-2 mt-1">
+                  <input
+                    type="text"
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    placeholder="AIza..."
+                    className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white/80 font-mono focus:outline-none focus:border-purple-500/50 placeholder:text-white/15 interactive"
+                  />
+                  <button onClick={submitCommunityKey} disabled={isSubmittingKey || !apiKeyInput.trim()}
+                    className="px-4 py-2 bg-purple-500/20 border border-purple-500/30 rounded-lg text-purple-300 text-xs font-bold hover:bg-purple-500/30 disabled:opacity-30 interactive">
+                    {isSubmittingKey ? '...' : 'Enviar'}
+                  </button>
+                </div>
               </div>
 
               <button onClick={() => setShowDonation(false)}

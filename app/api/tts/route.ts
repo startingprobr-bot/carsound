@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI, Modality } from "@google/genai";
+import fs from 'fs/promises';
+import path from 'path';
 
 const validVoices = [
   'Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr',
@@ -10,8 +12,19 @@ const validVoices = [
   'Zubenelgenubi', 'Vindemiatrix', 'Sadachbia', 'Sadaltager', 'Sulafat',
 ];
 
-function getApiKeys(): string[] {
-  // Suporta formato novo (GEMINI_API_KEYS com vírgula) e legado (GEMINI_API_KEY único)
+const COMMUNITY_KEYS_FILE = path.join(process.cwd(), 'dados', 'community_keys.json');
+
+async function getCommunityKeys(): Promise<string[]> {
+  try {
+    const data = await fs.readFile(COMMUNITY_KEYS_FILE, 'utf-8');
+    const keys: { key: string }[] = JSON.parse(data);
+    return keys.map(k => k.key).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function getEnvKeys(): string[] {
   const multi = process.env.GEMINI_API_KEYS;
   if (multi) {
     return multi.split(',').map(k => k.trim()).filter(Boolean);
@@ -21,6 +34,17 @@ function getApiKeys(): string[] {
     return [single];
   }
   return [];
+}
+
+async function getAllKeys(): Promise<string[]> {
+  const envKeys = getEnvKeys();
+  const communityKeys = await getCommunityKeys();
+  // Merge and deduplicate, env keys first (higher priority)
+  const all = [...envKeys];
+  for (const k of communityKeys) {
+    if (!all.includes(k)) all.push(k);
+  }
+  return all;
 }
 
 function isQuotaError(error: any): boolean {
@@ -56,10 +80,10 @@ async function generateWithKey(apiKey: string, text: string, voice: string, styl
 }
 
 export async function POST(request: NextRequest) {
-  const keys = getApiKeys();
+  const keys = await getAllKeys();
   if (keys.length === 0) {
     return NextResponse.json(
-      { error: 'API key não configurada. Edite o arquivo .env.local com sua(s) chave(s) do Gemini.' },
+      { error: 'Nenhuma chave de API disponível. Contribua com sua chave Gemini clicando no ❤️ no topo da página!' },
       { status: 500 }
     );
   }
