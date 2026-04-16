@@ -42,6 +42,12 @@ interface SavedMusic {
   url: string;
 }
 
+interface CustomEffect {
+  id: string;
+  name: string;
+  url: string;
+}
+
 const VOICES: { name: string; label: string; gender: 'M' | 'F'; desc?: string }[] = [
   // Masculinas
   { name: 'Charon', label: 'Charon', gender: 'M', desc: 'Grave' },
@@ -83,7 +89,7 @@ export default function SoundTruckTTS() {
 
   // --- Core State ---
   const [text, setText] = useState('');
-  const [voice, setVoice] = useState('Kore');
+  const [voice, setVoice] = useState('Enceladus');
   const [speed, setSpeed] = useState(1.0);
   const [isConverting, setIsConverting] = useState(false);
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
@@ -91,6 +97,7 @@ export default function SoundTruckTTS() {
   const [history, setHistory] = useState<Conversion[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [activePlaylist, setActivePlaylist] = useState<string | null>(null);
+  const [playingHistoryId, setPlayingHistoryId] = useState<string | null>(null);
 
   // --- Background Music State ---
   const [savedMusics, setSavedMusics] = useState<SavedMusic[]>([]);
@@ -148,12 +155,17 @@ export default function SoundTruckTTS() {
   const [editingField, setEditingField] = useState<'time' | 'volume' | null>(null);
   const [editingValue, setEditingValue] = useState('');
 
+  // --- Custom Effects ---
+  const [customEffects, setCustomEffects] = useState<CustomEffect[]>([]);
+  const [isUploadingEffect, setIsUploadingEffect] = useState(false);
+
   // ============================================================
   // INITIALIZATION
   // ============================================================
   useEffect(() => {
     loadData();
     loadMusics();
+    loadCustomEffects();
   }, []);
 
   // Keep bgMusic gain in sync with volume slider
@@ -461,12 +473,60 @@ export default function SoundTruckTTS() {
   };
 
   // ============================================================
+  // CUSTOM EFFECTS
+  // ============================================================
+  const loadCustomEffects = () => {
+    try {
+      const saved = localStorage.getItem('customEffects');
+      if (saved) setCustomEffects(JSON.parse(saved));
+    } catch { }
+  };
+
+  const uploadCustomEffect = async (file: File) => {
+    setIsUploadingEffect(true);
+    try {
+      const url = URL.createObjectURL(file);
+      const name = file.name.replace(/\.[^/.]+$/, '');
+      const newEffect: CustomEffect = { id: `custom_${Date.now()}`, name, url };
+      const updated = [...customEffects, newEffect];
+      setCustomEffects(updated);
+      localStorage.setItem('customEffects', JSON.stringify(updated.map(e => ({ ...e, url: '' }))));
+      // Store blob url in memory (will persist until page reload — for permanent, we'd need server storage)
+      toast.success(`Efeito "${name}" adicionado!`);
+    } catch {
+      toast.error('Erro ao carregar efeito');
+    } finally {
+      setIsUploadingEffect(false);
+    }
+  };
+
+  const deleteCustomEffect = (id: string) => {
+    const updated = customEffects.filter(e => e.id !== id);
+    setCustomEffects(updated);
+    localStorage.setItem('customEffects', JSON.stringify(updated.map(e => ({ ...e, url: '' }))));
+    toast.success('Efeito removido');
+  };
+
+  // ============================================================
   // HISTORY & DOWNLOAD
   // ============================================================
   const playHistoryItem = async (item: Conversion) => {
+    // If already playing this item, stop it
+    if (playingHistoryId === item.id) {
+      try { currentSourceRef.current?.stop(); } catch { }
+      currentSourceRef.current = null;
+      setPlayingHistoryId(null);
+      return;
+    }
+    // Stop any other playing item
+    try { currentSourceRef.current?.stop(); } catch { }
+    currentSourceRef.current = null;
+
     if (item.base64) {
+      setPlayingHistoryId(item.id);
       const pcm = base64ToPcm(item.base64);
       await playPcm(pcm, item.speed);
+      setPlayingHistoryId(null);
     } else {
       toast.error('Áudio não disponível');
     }
@@ -506,7 +566,9 @@ export default function SoundTruckTTS() {
   const [tlVolume, setTlVolume] = useState(0.8);
 
   const addTimelineEffect = () => {
-    const effect = SOUND_EFFECTS.find(e => e.id === tlEffectId);
+    const builtIn = SOUND_EFFECTS.find(e => e.id === tlEffectId);
+    const custom = customEffects.find(e => e.id === tlEffectId);
+    const effect = builtIn || custom;
     if (!effect) return;
     const item: TimelineItem = {
       id: Date.now().toString(),
@@ -517,7 +579,7 @@ export default function SoundTruckTTS() {
       volume: tlVolume,
     };
     setTimelineItems(prev => [...prev, item].sort((a, b) => a.startTime - b.startTime));
-    mixedBufferRef.current = null; // invalidate cache
+    mixedBufferRef.current = null;
     setShowAddTimeline(false);
   };
 
@@ -528,7 +590,17 @@ export default function SoundTruckTTS() {
 
   const previewTimelineEffect = (effectId: string) => {
     const ctx = initAudioContext();
-    playEffect(ctx, effectId);
+    const custom = customEffects.find(e => e.id === effectId);
+    if (custom && custom.url) {
+      fetch(custom.url).then(r => r.arrayBuffer()).then(buf => ctx.decodeAudioData(buf)).then(audioBuffer => {
+        const src = ctx.createBufferSource();
+        src.buffer = audioBuffer;
+        src.connect(ctx.destination);
+        src.start();
+      }).catch(() => toast.error('Erro ao reproduzir efeito'));
+    } else {
+      playEffect(ctx, effectId);
+    }
   };
 
   // --- Drag to reposition timeline items ---
@@ -1099,13 +1171,13 @@ export default function SoundTruckTTS() {
                   <motion.div key={item.id}
                     initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
                     className="flex items-center gap-2 py-2 border-b border-white/[0.04] last:border-0 group">
-                    {/* Play button always visible */}
-                    <button onClick={() => playHistoryItem(item)} title="Reproduzir"
-                      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-orange-500/10 text-orange-400/70 hover:bg-orange-500/20 hover:text-orange-400 interactive">
-                      <Play className="w-3 h-3 fill-current" />
+                    {/* Play/Pause button always visible */}
+                    <button onClick={() => playHistoryItem(item)} title={playingHistoryId === item.id ? 'Parar' : 'Reproduzir'}
+                      className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg interactive ${playingHistoryId === item.id ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/10 text-orange-400/70 hover:bg-orange-500/20 hover:text-orange-400'}`}>
+                      {playingHistoryId === item.id ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
                     </button>
-                    {/* Text + meta */}
-                    <div className="flex-1 min-w-0">
+                    {/* Text + meta — click to transfer text */}
+                    <div className="flex-1 min-w-0 cursor-pointer hover:bg-white/[0.03] rounded px-1 -mx-1 interactive" onClick={() => { setText(item.text); setVoice(item.voice); setSpeed(item.speed); toast.success('Texto carregado'); }}>
                       <p className="text-[11px] text-white/80 truncate">{item.text}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[8px] text-white/30 font-mono">{item.voice}</span>
@@ -1421,35 +1493,35 @@ export default function SoundTruckTTS() {
                         </div>
                       </div>
                     ) : (
-                      <div className="absolute inset-y-0 left-0 w-full rounded-lg border border-dashed border-blue-500/15 flex items-center justify-center gap-2 bg-blue-500/[0.04]">
+                      <div className="absolute inset-y-0 left-0 w-full rounded-lg bg-blue-500/[0.06] border border-blue-500/20 flex items-center justify-center gap-3 px-4">
                         {savedMusics.length > 0 ? (
-                          <select className="bg-transparent text-[10px] text-blue-300/40 focus:outline-none cursor-pointer"
-                            defaultValue="" onChange={(e) => { if (e.target.value) setSelectedMusic(e.target.value); }}>
-                            <option value="" disabled>🎵 Selecionar música de fundo...</option>
-                            {savedMusics.map(m => <option key={m.name} value={m.url}>{m.name}</option>)}
-                          </select>
+                          <>
+                            <Music className="w-4 h-4 text-blue-400/60 shrink-0" />
+                            <select className="bg-white/[0.06] border border-blue-500/20 rounded-lg text-xs text-white/70 px-3 py-1.5 cursor-pointer focus:outline-none interactive"
+                              defaultValue="" onChange={(e) => { if (e.target.value) setSelectedMusic(e.target.value); }}>
+                              <option value="" disabled>Selecionar música de fundo</option>
+                              {savedMusics.map(m => <option key={m.name} value={m.url}>{m.name}</option>)}
+                            </select>
+                          </>
                         ) : (
-                          <span className="text-[10px] text-blue-300/30">🎵 Sem música (faça upload abaixo)</span>
+                          <>
+                            <Music className="w-4 h-4 text-blue-400/40 shrink-0" />
+                            <span className="text-xs text-blue-300/50">Faça upload de uma música</span>
+                          </>
                         )}
+                        <input type="file" accept="audio/*" className="hidden" id="bg-music-upload-inline"
+                          onChange={(e) => e.target.files?.[0] && handleMusicUpload(e.target.files[0])} />
+                        <label htmlFor="bg-music-upload-inline"
+                          className="shrink-0 px-3 py-1.5 bg-blue-500/20 border border-blue-500/30 rounded-lg text-[10px] text-blue-300 font-bold cursor-pointer hover:bg-blue-500/30 interactive">
+                          {isUploadingMusic ? (
+                            <div className="animate-spin rounded-full h-3 w-3 border border-white/20 border-t-blue-400" />
+                          ) : (
+                            <><Upload className="w-3 h-3 inline mr-1" />Upload</>
+                          )}
+                        </label>
                       </div>
                     )}
                   </div>
-
-                  {/* Music upload inline */}
-                  {!selectedMusic && (
-                    <div className="mb-1">
-                      <input type="file" accept="audio/*" className="hidden" id="bg-music-upload-tl"
-                        onChange={(e) => e.target.files?.[0] && handleMusicUpload(e.target.files[0])} />
-                      <label htmlFor="bg-music-upload-tl"
-                        className="flex items-center justify-center py-1.5 cursor-pointer text-[10px] text-blue-300/30 hover:text-blue-300/60 transition-all">
-                        {isUploadingMusic ? (
-                          <div className="animate-spin rounded-full h-3 w-3 border border-white/20 border-t-blue-400" />
-                        ) : (
-                          <><Plus className="w-3 h-3 mr-1" />Upload música</>
-                        )}
-                      </label>
-                    </div>
-                  )}
 
                   {/* Effects tracks */}
                   {Array.from({ length: numEffectLayers }, (_, layerIndex) => (
@@ -1462,21 +1534,23 @@ export default function SoundTruckTTS() {
                         )}
                         {timelineItems.filter(item => (effectLayers.get(item.id) ?? 0) === layerIndex).map((item) => {
                           const leftPct = (item.startTime / totalTimelineDuration) * 100;
-                          const eff = SOUND_EFFECTS.find(e => e.id === item.sourceId);
+                          const builtEff = SOUND_EFFECTS.find(e => e.id === item.sourceId);
+                          const custEff = customEffects.find(e => e.id === item.sourceId);
+                          const effName = builtEff?.name ?? custEff?.name ?? item.name;
                           const isDragging = draggingItem === item.id;
                           return (
                             <div key={item.id}
                               className={`absolute top-0 bottom-0 flex items-center touch-none ${isDragging ? 'z-20' : 'z-10'}`}
                               style={{ left: `${Math.min(leftPct, 92)}%` }}
                               onPointerDown={(e) => handleTimelineDragStart(e, item.id)}
-                              title={`${eff?.name} @ ${item.startTime}s (vol ${Math.round(item.volume * 100)}%) — arraste para mover`}
+                              title={`${effName} @ ${item.startTime}s (vol ${Math.round(item.volume * 100)}%) — arraste para mover`}
                             >
                               <div className={`rounded-md px-2 py-1 flex items-center gap-1 cursor-grab active:cursor-grabbing interactive ${
                                 isDragging
                                   ? 'bg-green-500/30 border-2 border-green-400 scale-110 shadow-lg shadow-green-500/20'
                                   : 'bg-green-500/15 border border-green-500/30 hover:bg-green-500/25'
                               }`}>
-                                <span className="text-sm">{eff?.emoji}</span>
+                                <Volume2 className="w-3 h-3 text-green-300" />
                                 <span className="text-[9px] text-green-300/80 font-mono">{item.startTime.toFixed(1)}s</span>
                               </div>
                             </div>
@@ -1527,14 +1601,16 @@ export default function SoundTruckTTS() {
                     <p className="text-[10px] text-white/20 text-center py-2">Nenhum efeito na timeline — adicione abaixo</p>
                   ) : (
                     timelineItems.map((item) => {
-                      const eff = SOUND_EFFECTS.find(e => e.id === item.sourceId);
+                      const builtInEff = SOUND_EFFECTS.find(e => e.id === item.sourceId);
+                      const customEff = customEffects.find(e => e.id === item.sourceId);
+                      const effName = builtInEff?.name ?? customEff?.name ?? item.name;
                       const isEditingTime = editingItemId === item.id && editingField === 'time';
                       const isEditingVol = editingItemId === item.id && editingField === 'volume';
                       return (
                         <div key={item.id} className="flex items-center justify-between bg-white/[0.04] border border-white/[0.08] rounded-lg p-2.5 group hover:border-green-500/25 interactive">
                           <div className="flex items-center gap-2">
-                            <span>{eff?.emoji}</span>
-                            <span className="text-xs text-white/90">{eff?.name}</span>
+                            <Volume2 className="w-3.5 h-3.5 text-green-400/60" />
+                            <span className="text-xs text-white/90">{effName}</span>
                             {isEditingTime ? (
                               <input type="number" min="0" step="0.5" value={editingValue} autoFocus
                                 className="w-16 bg-black border border-green-500/50 rounded px-1.5 py-0.5 text-[9px] text-green-400 focus:outline-none"
@@ -1582,22 +1658,59 @@ export default function SoundTruckTTS() {
                 {/* Add Effect to Timeline */}
                 {showAddTimeline ? (
                   <div className="space-y-3 bg-white/[0.03] border border-green-500/15 rounded-xl p-4">
-                    <label className="text-[10px] text-white/40 uppercase tracking-[0.15em] font-bold">Escolha o efeito</label>
-                    <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] text-white/40 uppercase tracking-[0.15em] font-bold">Escolha o efeito</label>
+                      <label className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-500/10 border border-green-500/25 rounded-lg text-[10px] text-green-300 cursor-pointer hover:bg-green-500/20 interactive">
+                        <Upload className="w-3 h-3" />
+                        Upload
+                        <input type="file" accept="audio/*" className="hidden" onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) uploadCustomEffect(file);
+                          e.target.value = '';
+                        }} />
+                      </label>
+                    </div>
+
+                    <div className="max-h-[200px] overflow-y-auto custom-scrollbar space-y-1">
+                      {/* Built-in effects */}
+                      <p className="text-[9px] text-white/25 uppercase tracking-widest font-bold px-1 pt-1">Padrão</p>
                       {SOUND_EFFECTS.map(e => (
                         <button key={e.id}
                           onClick={() => setTlEffectId(e.id)}
-                          className={`p-2 rounded-lg flex flex-col items-center gap-0.5 interactive border ${
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left interactive border ${
                             tlEffectId === e.id
                               ? 'bg-green-500/15 border-green-500/30 text-green-300'
-                              : 'bg-white/[0.03] border-white/[0.06] text-white/40 hover:bg-white/[0.06]'
+                              : 'bg-white/[0.02] border-transparent text-white/50 hover:bg-white/[0.05] hover:text-white/70'
                           }`}
                         >
-                          <span className="text-lg">{e.emoji}</span>
-                          <span className="text-[8px] leading-tight text-center">{e.name}</span>
+                          <Volume2 className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span className="text-xs">{e.name}</span>
                         </button>
                       ))}
+
+                      {/* Custom effects */}
+                      {customEffects.length > 0 && (
+                        <>
+                          <p className="text-[9px] text-white/25 uppercase tracking-widest font-bold px-1 pt-2">Meus efeitos</p>
+                          {customEffects.map(e => (
+                            <div key={e.id} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border ${
+                              tlEffectId === e.id
+                                ? 'bg-green-500/15 border-green-500/30 text-green-300'
+                                : 'bg-white/[0.02] border-transparent text-white/50 hover:bg-white/[0.05]'
+                            }`}>
+                              <button onClick={() => setTlEffectId(e.id)} className="flex items-center gap-2 flex-1 text-left interactive">
+                                <Upload className="w-3.5 h-3.5 flex-shrink-0" />
+                                <span className="text-xs">{e.name}</span>
+                              </button>
+                              <button onClick={() => deleteCustomEffect(e.id)} className="p-1 text-white/20 hover:text-red-400 interactive">
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </>
+                      )}
                     </div>
+
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-[10px] text-white/40 uppercase tracking-[0.15em] font-bold">
