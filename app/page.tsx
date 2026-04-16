@@ -2116,50 +2116,68 @@ export default function SoundTruckTTS() {
           const el = typeof document !== 'undefined' ? document.querySelector(step.target) : null;
           const rect = el?.getBoundingClientRect();
           if (!rect) return null;
-          const isRight = rect.left > window.innerWidth / 2;
-          const isBottom = rect.top > window.innerHeight / 2;
+          // Position tooltip to the right of the element; if element is on the right half, put tooltip to the left
+          const sidebarWidth = 320;
+          const tooltipW = 280;
+          const isInSidebar = rect.left < sidebarWidth;
+          const tooltipLeft = isInSidebar
+            ? Math.min(rect.right + 16, window.innerWidth - tooltipW - 16)
+            : Math.max(rect.left - tooltipW - 16, 16);
+          const tooltipTop = Math.max(Math.min(rect.top + rect.height / 2 - 70, window.innerHeight - 200), 16);
           return (
             <motion.div key={tourStep} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 z-[90] pointer-events-none">
-              {/* Dim overlay with hole */}
-              <div className="absolute inset-0 pointer-events-auto" onClick={() => { setTourStep(-1); localStorage.setItem('carro_som_tour_done', '1'); }}
+              {/* Dark overlay */}
+              <div className="absolute inset-0 bg-black/70 pointer-events-auto" onClick={() => { setTourStep(-1); localStorage.setItem('carro_som_tour_done', '1'); }} />
+              {/* Highlighted element clone (bright cutout) */}
+              <div className="absolute rounded-xl pointer-events-none"
+                style={{ left: rect.left - 4, top: rect.top - 4, width: rect.width + 8, height: rect.height + 8, boxShadow: '0 0 0 4000px rgba(0,0,0,0.70)', border: '2px solid #facc15', background: 'rgba(250,204,21,0.05)' }} />
+              {/* Arrow line connecting highlight to tooltip */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
+                <line
+                  x1={isInSidebar ? rect.right + 4 : rect.left - 4}
+                  y1={rect.top + rect.height / 2}
+                  x2={isInSidebar ? tooltipLeft : tooltipLeft + tooltipW}
+                  y2={tooltipTop + 35}
+                  stroke="#facc15" strokeWidth="2" strokeDasharray="6 4" opacity="0.6" />
+              </svg>
+              {/* Floating tooltip */}
+              <motion.div initial={{ opacity: 0, x: isInSidebar ? -20 : 20 }} animate={{ opacity: 1, x: 0 }}
+                className="absolute pointer-events-auto rounded-2xl p-5 shadow-2xl"
                 style={{
-                  background: `radial-gradient(ellipse ${Math.max(rect.width + 40, 120)}px ${Math.max(rect.height + 40, 80)}px at ${rect.left + rect.width / 2}px ${rect.top + rect.height / 2}px, transparent 50%, rgba(0,0,0,0.75) 100%)`,
-                }} />
-              {/* Highlight ring */}
-              <div className="absolute border-2 border-green-400/60 rounded-xl pointer-events-none animate-pulse"
-                style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12 }} />
-              {/* Tooltip */}
-              <motion.div initial={{ opacity: 0, y: isBottom ? 10 : -10 }} animate={{ opacity: 1, y: 0 }}
-                className="absolute pointer-events-auto glass-strong rounded-xl p-4 shadow-2xl border border-green-500/30 max-w-xs"
-                style={{
-                  left: isRight ? Math.max(rect.left - 260, 16) : Math.min(rect.left, window.innerWidth - 300),
-                  top: isBottom ? rect.top - 140 : rect.bottom + 12,
+                  left: tooltipLeft,
+                  top: tooltipTop,
+                  width: tooltipW,
+                  background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+                  border: '2px solid #facc15',
+                  zIndex: 2,
                 }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-[10px] font-bold text-green-400">{tourStep + 1}</div>
-                  <h4 className="text-sm font-bold text-white">{step.title}</h4>
+                <div className="flex items-center gap-2.5 mb-2.5">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black" style={{ background: '#facc15', color: '#1a1a2e' }}>{tourStep + 1}</div>
+                  <h4 className="text-sm font-bold" style={{ color: '#facc15' }}>{step.title}</h4>
                 </div>
-                <p className="text-xs text-white/70 leading-relaxed mb-3">{step.desc}</p>
+                <p className="text-[13px] text-white/90 leading-relaxed mb-4">{step.desc}</p>
                 <div className="flex items-center justify-between">
-                  <div className="flex gap-1">
+                  <div className="flex gap-1.5">
                     {tourSteps.map((_, i) => (
-                      <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === tourStep ? 'bg-green-400' : i < tourStep ? 'bg-green-400/40' : 'bg-white/20'}`} />
+                      <div key={i} className="w-2 h-2 rounded-full" style={{ background: i === tourStep ? '#facc15' : i < tourStep ? 'rgba(250,204,21,0.4)' : 'rgba(255,255,255,0.15)' }} />
                     ))}
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => { setTourStep(-1); localStorage.setItem('carro_som_tour_done', '1'); }}
-                      className="px-3 py-1.5 text-[10px] text-white/40 hover:text-white/60 interactive rounded-lg hover:bg-white/[0.06]">
+                      className="px-3 py-1.5 text-[11px] text-white/50 hover:text-white/80 interactive rounded-lg hover:bg-white/[0.08]">
                       Pular
                     </button>
                     {tourStep < tourSteps.length - 1 ? (
                       <button onClick={() => setTourStep(tourStep + 1)}
-                        className="px-3 py-1.5 text-[10px] font-bold bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 interactive border border-green-500/30">
+                        className="px-4 py-1.5 text-[11px] font-bold rounded-lg interactive"
+                        style={{ background: '#facc15', color: '#1a1a2e' }}>
                         Próximo →
                       </button>
                     ) : (
                       <button onClick={() => { setTourStep(-1); localStorage.setItem('carro_som_tour_done', '1'); }}
-                        className="px-3 py-1.5 text-[10px] font-bold bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 interactive border border-green-500/30">
+                        className="px-4 py-1.5 text-[11px] font-bold rounded-lg interactive"
+                        style={{ background: '#facc15', color: '#1a1a2e' }}>
                         Concluir ✓
                       </button>
                     )}
