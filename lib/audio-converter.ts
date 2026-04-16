@@ -88,7 +88,7 @@ export async function pcmToMp3(pcmData: Int16Array, sampleRate: number = 24000):
       mp3Data.push(mp3buf);
     }
 
-    return new Blob(mp3Data, { type: 'audio/mp3' });
+    return new Blob(mp3Data as BlobPart[], { type: 'audio/mp3' });
   } catch (e) {
     console.warn('MP3 encoding failed, falling back to WAV:', e);
     return pcmToWav(pcmData, sampleRate);
