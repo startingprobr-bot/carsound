@@ -30,20 +30,19 @@
 }
 
 /* Glow accents */
-.glow-orange { box-shadow: 0 0 20px rgba(249, 115, 22, 0.15), 0 0 60px rgba(249, 115, 22, 0.05); }
 .glow-green { box-shadow: 0 0 20px rgba(34, 197, 94, 0.15), 0 0 60px rgba(34, 197, 94, 0.05); }
 .glow-blue { box-shadow: 0 0 20px rgba(59, 130, 246, 0.15), 0 0 60px rgba(59, 130, 246, 0.05); }
 
 /* Ambient bg gradient */
 .ambient-bg {
   background:
-    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(249, 115, 22, 0.06), transparent),
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(34, 197, 94, 0.06), transparent),
     radial-gradient(ellipse 60% 80% at 80% 90%, rgba(59, 130, 246, 0.04), transparent),
     #060608;
 }
 
 /* Timeline track styles */
-.track-tts { background: linear-gradient(135deg, rgba(249, 115, 22, 0.25), rgba(249, 115, 22, 0.1)); }
+.track-tts { background: linear-gradient(135deg, rgba(34, 197, 94, 0.25), rgba(34, 197, 94, 0.1)); }
 .track-music { background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.08)); }
 .track-effect { background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.08)); }
 
@@ -57,4 +56,17 @@
 /* Smooth transition for all interactive elements */
 .interactive {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark themed select dropdowns */
+select,
+select option {
+  background-color: #12121a;
+  color: rgba(255, 255, 255, 0.7);
+}
+select option:checked {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+select option:hover {
+  background-color: rgba(255, 255, 255, 0.08);
 }
