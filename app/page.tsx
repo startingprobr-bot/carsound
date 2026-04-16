@@ -174,6 +174,17 @@ export default function SoundTruckTTS() {
   const [likeCount, setLikeCount] = useState(0);
   const [hasLiked, setHasLiked] = useState(false);
 
+  // --- Tutorial ---
+  const [tourStep, setTourStep] = useState(-1); // -1 = inactive
+  const tourSteps = [
+    { target: '[data-tour="text"]', title: '1. Texto', desc: 'Digite aqui o texto que será falado no áudio do carro de som.' },
+    { target: '[data-tour="voice"]', title: '2. Voz', desc: 'Escolha entre 20 vozes masculinas e femininas com diferentes estilos.' },
+    { target: '[data-tour="entonation"]', title: '3. Entonação', desc: 'Ajuste o estilo da fala (animado, sério, etc.) e a velocidade.' },
+    { target: '[data-tour="generate"]', title: '4. Gerar Áudio', desc: 'Clique aqui para gerar o áudio com IA. Você também pode importar um áudio pronto.' },
+    { target: '[data-tour="timeline"]', title: '5. Timeline', desc: 'Aqui é onde você monta o áudio final: arraste, adicione efeitos e música de fundo.' },
+    { target: '[data-tour="effects"]', title: '6. Efeitos e Música', desc: 'Adicione efeitos sonoros e música de fundo para deixar o áudio profissional.' },
+  ];
+
   // --- Real-time playback gain ---
   const mixGainRef = useRef<GainNode | null>(null);
 
@@ -204,6 +215,14 @@ export default function SoundTruckTTS() {
     fetch('/api/keys').then(r => r.json()).then(d => setCommunityKeyCount(d.count || 0)).catch(() => {});
     fetch('/api/likes').then(r => r.json()).then(d => setLikeCount(d.count || 0)).catch(() => {});
     setHasLiked(localStorage.getItem('carro_som_liked') === '1');
+    // First visit: show donation + start tutorial
+    if (!localStorage.getItem('carro_som_visited')) {
+      localStorage.setItem('carro_som_visited', '1');
+      setTimeout(() => setShowDonation(true), 1500);
+    }
+    if (!localStorage.getItem('carro_som_tour_done')) {
+      setTimeout(() => setTourStep(0), 2500);
+    }
   }, []);
 
   const submitCommunityKey = async () => {
@@ -1232,7 +1251,7 @@ export default function SoundTruckTTS() {
           </AnimatePresence>
 
           {/* === TEXT INPUT === */}
-          <div className="border-b border-white/[0.06]">
+          <div className="border-b border-white/[0.06]" data-tour="text">
             <button onClick={() => setSectionOpen(p => ({ ...p, text: !p.text }))} className="w-full p-4 flex items-center justify-between hover:bg-white/[0.02] interactive">
               <div className="flex items-center gap-2">
                 <Mic2 className="w-4 h-4 text-green-400" />
@@ -1256,7 +1275,7 @@ export default function SoundTruckTTS() {
           </div>
 
           {/* === VOICE SELECTOR (Dropdown) === */}
-          <div className="border-b border-white/[0.06]">
+          <div className="border-b border-white/[0.06]" data-tour="voice">
             <button onClick={() => setSectionOpen(p => ({ ...p, voice: !p.voice }))} className="w-full p-4 flex items-center justify-between hover:bg-white/[0.02] interactive">
               <div className="flex items-center gap-2">
                 <Volume2 className="w-4 h-4 text-green-400" />
@@ -1349,7 +1368,7 @@ export default function SoundTruckTTS() {
           </div>
 
           {/* === ENTONAÇÃO + VELOCIDADE === */}
-          <div className="border-b border-white/[0.06]">
+          <div className="border-b border-white/[0.06]" data-tour="entonation">
             <button onClick={() => setSectionOpen(p => ({ ...p, entonation: !p.entonation }))} className="w-full p-4 flex items-center justify-between hover:bg-white/[0.02] interactive">
               <div className="flex items-center gap-2">
                 <Zap className="w-4 h-4 text-green-400" />
@@ -1393,7 +1412,7 @@ export default function SoundTruckTTS() {
           </div>
 
           {/* === GERAR / IMPORTAR / DOWNLOAD === */}
-          <div className="p-4 border-b border-white/[0.06]">
+          <div className="p-4 border-b border-white/[0.06]" data-tour="generate">
             <button onClick={handleConvert} disabled={isConverting}
               className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 disabled:from-white/[0.06] disabled:to-white/[0.06] disabled:text-white/20 py-3 rounded-xl font-bold flex items-center justify-center gap-2 interactive shadow-lg shadow-green-900/20 mb-2">
               {isConverting ? (
@@ -1553,7 +1572,7 @@ export default function SoundTruckTTS() {
 
         {/* ======== RIGHT: TIMELINE (full width) ======== */}
         <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar p-5">
-          <section className="glass rounded-2xl p-6 glow-green flex-1 flex flex-col">
+          <section className="glass rounded-2xl p-6 glow-green flex-1 flex flex-col" data-tour="timeline">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Timer className="w-4 h-4 text-green-400" />
@@ -1964,7 +1983,7 @@ export default function SoundTruckTTS() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex gap-2">
+                  <div className="flex gap-2" data-tour="effects">
                     <button onClick={() => setShowAddTimeline(true)}
                       className="flex-1 py-3 border border-dashed border-green-500/20 rounded-xl text-[10px] uppercase tracking-[0.15em] text-green-300/40 font-bold hover:bg-green-500/[0.04] hover:text-green-300/60 interactive">
                       + Efeito Sonoro
@@ -2089,6 +2108,68 @@ export default function SoundTruckTTS() {
           </section>
         </div>
       </main>
+
+      {/* Tutorial Overlay */}
+      <AnimatePresence>
+        {tourStep >= 0 && tourStep < tourSteps.length && !showDonation && (() => {
+          const step = tourSteps[tourStep];
+          const el = typeof document !== 'undefined' ? document.querySelector(step.target) : null;
+          const rect = el?.getBoundingClientRect();
+          if (!rect) return null;
+          const isRight = rect.left > window.innerWidth / 2;
+          const isBottom = rect.top > window.innerHeight / 2;
+          return (
+            <motion.div key={tourStep} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[90] pointer-events-none">
+              {/* Dim overlay with hole */}
+              <div className="absolute inset-0 pointer-events-auto" onClick={() => { setTourStep(-1); localStorage.setItem('carro_som_tour_done', '1'); }}
+                style={{
+                  background: `radial-gradient(ellipse ${Math.max(rect.width + 40, 120)}px ${Math.max(rect.height + 40, 80)}px at ${rect.left + rect.width / 2}px ${rect.top + rect.height / 2}px, transparent 50%, rgba(0,0,0,0.75) 100%)`,
+                }} />
+              {/* Highlight ring */}
+              <div className="absolute border-2 border-green-400/60 rounded-xl pointer-events-none animate-pulse"
+                style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12 }} />
+              {/* Tooltip */}
+              <motion.div initial={{ opacity: 0, y: isBottom ? 10 : -10 }} animate={{ opacity: 1, y: 0 }}
+                className="absolute pointer-events-auto glass-strong rounded-xl p-4 shadow-2xl border border-green-500/30 max-w-xs"
+                style={{
+                  left: isRight ? Math.max(rect.left - 260, 16) : Math.min(rect.left, window.innerWidth - 300),
+                  top: isBottom ? rect.top - 140 : rect.bottom + 12,
+                }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center text-[10px] font-bold text-green-400">{tourStep + 1}</div>
+                  <h4 className="text-sm font-bold text-white">{step.title}</h4>
+                </div>
+                <p className="text-xs text-white/70 leading-relaxed mb-3">{step.desc}</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-1">
+                    {tourSteps.map((_, i) => (
+                      <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === tourStep ? 'bg-green-400' : i < tourStep ? 'bg-green-400/40' : 'bg-white/20'}`} />
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => { setTourStep(-1); localStorage.setItem('carro_som_tour_done', '1'); }}
+                      className="px-3 py-1.5 text-[10px] text-white/40 hover:text-white/60 interactive rounded-lg hover:bg-white/[0.06]">
+                      Pular
+                    </button>
+                    {tourStep < tourSteps.length - 1 ? (
+                      <button onClick={() => setTourStep(tourStep + 1)}
+                        className="px-3 py-1.5 text-[10px] font-bold bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 interactive border border-green-500/30">
+                        Próximo →
+                      </button>
+                    ) : (
+                      <button onClick={() => { setTourStep(-1); localStorage.setItem('carro_som_tour_done', '1'); }}
+                        className="px-3 py-1.5 text-[10px] font-bold bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 interactive border border-green-500/30">
+                        Concluir ✓
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
 
       {/* Donation Modal */}
       <AnimatePresence>
