@@ -1085,63 +1085,66 @@ export default function SoundTruckTTS() {
           </div>
 
           {/* === HISTORY === */}
-          <div className="flex-1 flex flex-col min-h-0 border-b border-white/[0.06]">
-            <div className="p-4 pb-2 flex items-center justify-between">
+          <div className="flex flex-col border-b border-white/[0.06]" style={{ maxHeight: '40vh' }}>
+            <div className="p-4 pb-2 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <History className="w-4 h-4 text-white/40" />
                 <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">Histórico</h2>
               </div>
               <span className="text-[10px] bg-white/[0.06] rounded-md px-2 py-0.5 text-white/35 font-mono">{history.length}</span>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto px-4 pb-3 custom-scrollbar">
               <AnimatePresence initial={false}>
                 {history.map((item) => (
                   <motion.div key={item.id}
                     initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-                    className="bg-white/[0.04] border border-white/[0.08] rounded-xl p-3 group hover:border-orange-500/25 interactive">
-                    <p className="text-xs text-white/80 line-clamp-2 mb-2 italic">&quot;{item.text}&quot;</p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] uppercase bg-white/[0.06] rounded px-1.5 py-0.5 text-white/40 font-mono">{item.voice}</span>
-                        <span className="text-[9px] text-white/20 font-mono">{new Date(item.timestamp).toLocaleTimeString()}</span>
+                    className="flex items-center gap-2 py-2 border-b border-white/[0.04] last:border-0 group">
+                    {/* Play button always visible */}
+                    <button onClick={() => playHistoryItem(item)} title="Reproduzir"
+                      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-orange-500/10 text-orange-400/70 hover:bg-orange-500/20 hover:text-orange-400 interactive">
+                      <Play className="w-3 h-3 fill-current" />
+                    </button>
+                    {/* Text + meta */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] text-white/80 truncate">{item.text}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[8px] text-white/30 font-mono">{item.voice}</span>
+                        <span className="text-[8px] text-white/15 font-mono">{new Date(item.timestamp).toLocaleTimeString()}</span>
                       </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 interactive">
-                        <button onClick={() => playHistoryItem(item)} title="Reproduzir"
-                          className="p-1.5 hover:bg-orange-500/20 rounded-lg text-white/40 hover:text-orange-400 interactive">
-                          <Play className="w-3.5 h-3.5" />
-                        </button>
-                        {playlists.length > 0 && (
-                          <select className="bg-white/[0.06] text-[9px] text-white/40 rounded px-1 py-1 cursor-pointer focus:outline-none"
-                            defaultValue="" onChange={(e) => { if (e.target.value) { addToPlaylist(e.target.value, item.id); e.target.value = ''; } }}>
-                            <option value="" disabled>+ Playlist</option>
-                            {playlists.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
-                          </select>
-                        )}
-                        <button onClick={() => downloadAudio(item)} title="Download"
-                          className="p-1.5 hover:bg-white/[0.08] rounded-lg text-white/40 hover:text-white/70 interactive">
-                          <Download className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => deleteHistoryItem(item.id)} title="Excluir"
-                          className="p-1.5 hover:bg-red-500/20 rounded-lg text-white/40 hover:text-red-400 interactive">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                    </div>
+                    {/* Actions */}
+                    <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 interactive">
+                      {playlists.length > 0 && (
+                        <select className="bg-white/[0.06] text-[8px] text-white/40 rounded px-1 py-0.5 cursor-pointer focus:outline-none"
+                          defaultValue="" onChange={(e) => { if (e.target.value) { addToPlaylist(e.target.value, item.id); e.target.value = ''; } }}>
+                          <option value="" disabled>+PL</option>
+                          {playlists.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
+                        </select>
+                      )}
+                      <button onClick={() => downloadAudio(item)} title="Download"
+                        className="p-1 hover:bg-white/[0.08] rounded text-white/30 hover:text-white/60 interactive">
+                        <Download className="w-3 h-3" />
+                      </button>
+                      <button onClick={() => deleteHistoryItem(item.id)} title="Excluir"
+                        className="p-1 hover:bg-red-500/20 rounded text-white/30 hover:text-red-400 interactive">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     </div>
                   </motion.div>
                 ))}
               </AnimatePresence>
               {history.length === 0 && (
-                <div className="flex flex-col items-center justify-center text-white/[0.08] py-8">
-                  <Clock className="w-8 h-8 mb-2" />
-                  <p className="text-[10px] uppercase tracking-[0.15em] font-bold">Sem registros</p>
+                <div className="flex flex-col items-center justify-center text-white/[0.08] py-6">
+                  <Clock className="w-6 h-6 mb-1" />
+                  <p className="text-[9px] uppercase tracking-[0.15em] font-bold">Sem registros</p>
                 </div>
               )}
             </div>
           </div>
 
           {/* === PLAYLISTS === */}
-          <div className="p-4">
-            <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-col" style={{ maxHeight: '35vh' }}>
+            <div className="p-4 pb-2 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <ListMusic className="w-4 h-4 text-white/40" />
                 <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">Playlists</h2>
@@ -1151,6 +1154,7 @@ export default function SoundTruckTTS() {
               </button>
             </div>
 
+            <div className="flex-1 overflow-y-auto px-4 pb-4 custom-scrollbar">
             {showNewPlaylist && (
               <div className="flex gap-2 mb-3">
                 <input value={newPlaylistName} onChange={(e) => setNewPlaylistName(e.target.value)}
@@ -1161,7 +1165,7 @@ export default function SoundTruckTTS() {
               </div>
             )}
 
-            <div className="space-y-2 max-h-[250px] overflow-y-auto custom-scrollbar">
+            <div className="space-y-2">
               {playlists.map((pl) => (
                 <div key={pl.id}
                   className={`bg-white/[0.04] border rounded-xl p-3 interactive ${activePlaylist === pl.id ? 'border-orange-500/30 bg-orange-500/[0.06]' : 'border-white/[0.08] hover:border-white/[0.12]'}`}>
@@ -1204,6 +1208,7 @@ export default function SoundTruckTTS() {
                   <p className="text-[10px] uppercase tracking-[0.15em] font-bold">Sem playlists</p>
                 </div>
               )}
+            </div>
             </div>
           </div>
         </aside>
