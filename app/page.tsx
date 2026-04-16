@@ -925,156 +925,300 @@ export default function SoundTruckTTS() {
         )}
       </header>
 
-      <main className="max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <main className="h-[calc(100vh-64px)] flex overflow-hidden">
 
-        {/* ======== LEFT COLUMN ======== */}
-        <div className="lg:col-span-8 space-y-5">
+        {/* ======== LEFT SIDEBAR ======== */}
+        <aside className="w-80 min-w-[320px] flex flex-col border-r border-white/[0.06] bg-black/20 overflow-y-auto custom-scrollbar">
 
           {/* === TEXT INPUT === */}
-          <section className="glass rounded-2xl p-6 glow-orange">
-            <div className="flex items-center gap-2 mb-4">
+          <div className="p-4 border-b border-white/[0.06]">
+            <div className="flex items-center gap-2 mb-3">
               <Mic2 className="w-4 h-4 text-orange-400" />
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">Texto para Locução</h2>
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/60">Texto para Locução</h2>
             </div>
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Digite o anúncio aqui... (ex: ATENÇÃO! OFERTA IMPERDÍVEL NO MERCADO DO POVO!)"
-              className="w-full h-36 bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 text-base focus:outline-none focus:border-orange-500/40 focus:bg-white/[0.05] transition-all resize-none placeholder:text-white/15"
+              placeholder="Digite o anúncio aqui... (ex: ATENÇÃO! OFERTA IMPERDÍVEL!)"
+              className="w-full h-28 bg-white/[0.04] border border-white/[0.08] rounded-xl p-3 text-sm text-white/90 focus:outline-none focus:border-orange-500/50 focus:bg-white/[0.06] transition-all resize-none placeholder:text-white/20"
             />
+          </div>
 
-            {/* Voice Selection */}
-            <div className="mt-4 space-y-3">
-              <label className="text-[10px] uppercase tracking-[0.15em] text-white/30 font-bold flex items-center gap-2">
-                Voz do Locutor
-                <span className="text-white/15 normal-case tracking-normal">(clique no ▶ para ouvir)</span>
-              </label>
-              {/* Masculinas */}
-              <div>
-                <span className="text-[9px] text-white/20 uppercase tracking-[0.15em] mb-1.5 block">♂ Masculinas</span>
-                <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
-                  {VOICES.filter(v => v.gender === 'M').map((v) => (
-                    <div key={v.name} className="relative">
-                      <button onClick={() => setVoice(v.name)}
-                        className={`w-full px-1.5 py-2 rounded-lg text-[10px] font-medium border interactive ${voice === v.name
-                          ? 'bg-orange-500/20 border-orange-500/40 text-orange-300 shadow-inner'
-                          : 'bg-white/[0.03] border-white/[0.06] text-white/50 hover:bg-white/[0.06] hover:border-white/10'
-                          }`}>
-                        <span className="block truncate">{v.label}</span>
-                        {v.desc && <span className={`text-[8px] ${voice === v.name ? 'text-orange-400/50' : 'text-white/20'}`}>{v.desc}</span>}
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); previewVoice(v.name); }}
-                        disabled={previewingVoice !== null}
-                        className="absolute -top-1 -right-1 bg-black/80 backdrop-blur border border-white/10 rounded-full w-4 h-4 flex items-center justify-center hover:bg-orange-500 hover:border-orange-500/50 interactive"
-                        title={`Ouvir ${v.name}`}>
-                        {previewingVoice === v.name ? (
-                          <div className="animate-spin rounded-full h-2.5 w-2.5 border border-white/20 border-t-white" />
-                        ) : (
-                          <Play className="w-2 h-2 fill-current" />
-                        )}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Femininas */}
-              <div>
-                <span className="text-[9px] text-white/20 uppercase tracking-[0.15em] mb-1.5 block">♀ Femininas</span>
-                <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
-                  {VOICES.filter(v => v.gender === 'F').map((v) => (
-                    <div key={v.name} className="relative">
-                      <button onClick={() => setVoice(v.name)}
-                        className={`w-full px-1.5 py-2 rounded-lg text-[10px] font-medium border interactive ${voice === v.name
-                          ? 'bg-orange-500/20 border-orange-500/40 text-orange-300 shadow-inner'
-                          : 'bg-white/[0.03] border-white/[0.06] text-white/50 hover:bg-white/[0.06] hover:border-white/10'
-                          }`}>
-                        <span className="block truncate">{v.label}</span>
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); previewVoice(v.name); }}
-                        disabled={previewingVoice !== null}
-                        className="absolute -top-1 -right-1 bg-black/80 backdrop-blur border border-white/10 rounded-full w-4 h-4 flex items-center justify-center hover:bg-orange-500 hover:border-orange-500/50 interactive"
-                        title={`Ouvir ${v.name}`}>
-                        {previewingVoice === v.name ? (
-                          <div className="animate-spin rounded-full h-2.5 w-2.5 border border-white/20 border-t-white" />
-                        ) : (
-                          <Play className="w-2 h-2 fill-current" />
-                        )}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Entonação / Estilo */}
-              <div>
-                <label className="text-[10px] uppercase tracking-[0.15em] text-white/30 font-bold mb-1.5 block">
-                  Entonação da Voz
-                </label>
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-                  {TTS_STYLES.map(s => (
-                    <button key={s.id} onClick={() => setTtsStyle(s.id)}
-                      className={`px-2 py-2 rounded-lg text-[10px] font-medium border interactive ${
-                        ttsStyle === s.id
-                          ? 'bg-orange-500/20 border-orange-500/40 text-orange-300'
-                          : 'bg-white/[0.03] border-white/[0.06] text-white/40 hover:bg-white/[0.06]'
-                      }`}
-                      title={s.desc}>
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Speed + Generate */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase tracking-[0.15em] text-white/30 font-bold flex justify-between">
-                  Velocidade <span className="text-white/50">{speed.toFixed(1)}x</span>
-                </label>
-                <input type="range" min="0.5" max="2.0" step="0.1" value={speed}
-                  onChange={(e) => setSpeed(parseFloat(e.target.value))}
-                  className="w-full accent-orange-500" />
-                <div className="flex justify-between text-[9px] text-white/15">
-                  <span>Lento</span><span>Rápido</span>
-                </div>
-              </div>
-              <div className="flex items-end gap-2">
-                <button onClick={handleConvert} disabled={isConverting}
-                  className="flex-1 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 disabled:from-white/5 disabled:to-white/5 disabled:text-white/20 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 interactive shadow-lg shadow-orange-900/20">
-                  {isConverting ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white/20 border-t-white" />
-                  ) : (
-                    <><Zap className="w-5 h-5 fill-current" />GERAR ÁUDIO</>
+          {/* === VOICE SELECTOR (Dropdown) === */}
+          <div className="p-4 border-b border-white/[0.06]">
+            <label className="text-[10px] uppercase tracking-[0.15em] text-white/40 font-bold mb-2 block">
+              Voz do Locutor
+            </label>
+            <div className="relative" ref={voiceDropdownRef}>
+              <button onClick={() => setShowVoiceDropdown(!showVoiceDropdown)}
+                className="w-full flex items-center justify-between bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm interactive hover:bg-white/[0.06] hover:border-white/[0.12]">
+                <div className="flex items-center gap-2">
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${VOICES.find(v => v.name === voice)?.gender === 'M' ? 'bg-blue-500/20 text-blue-300' : 'bg-pink-500/20 text-pink-300'}`}>
+                    {VOICES.find(v => v.name === voice)?.gender === 'M' ? '♂' : '♀'}
+                  </span>
+                  <span className="text-white/90 font-medium">{voice}</span>
+                  {VOICES.find(v => v.name === voice)?.desc && (
+                    <span className="text-[9px] text-white/30">{VOICES.find(v => v.name === voice)?.desc}</span>
                   )}
-                </button>
-                <div className="relative">
-                  <input type="file" accept="audio/*" className="hidden" id="import-voice-file"
-                    onChange={(e) => { if (e.target.files?.[0]) { importVoiceFile(e.target.files[0]); e.target.value = ''; } }} />
-                  <label htmlFor="import-voice-file" title="Importar áudio de locução existente"
-                    className="glass hover:bg-white/[0.06] py-3.5 px-4 rounded-xl font-bold flex items-center justify-center gap-2 interactive cursor-pointer">
-                    <Upload className="w-5 h-5 text-white/50" />
-                  </label>
                 </div>
-                {lastGeneratedPcm && (
-                  <button onClick={downloadTtsAudio} title="Baixar locução sem mixar (economiza tokens)"
-                    className="glass hover:bg-white/[0.06] py-3.5 px-4 rounded-xl font-bold flex items-center justify-center gap-2 interactive">
-                    <Download className="w-5 h-5 text-white/50" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </section>
+                <svg className={`w-4 h-4 text-white/30 transition-transform ${showVoiceDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
 
-          {/* === TIMELINE & EFFECTS EDITOR === */}
-          <section className="glass rounded-2xl p-6 glow-green">
+              {showVoiceDropdown && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-[#141418] border border-white/[0.1] rounded-xl shadow-2xl shadow-black/60 max-h-[340px] overflow-y-auto custom-scrollbar">
+                  {/* Masculinas */}
+                  <div className="px-3 pt-3 pb-1">
+                    <span className="text-[9px] uppercase tracking-[0.15em] text-blue-400/60 font-bold">♂ Masculinas</span>
+                  </div>
+                  {VOICES.filter(v => v.gender === 'M').map((v) => (
+                    <div key={v.name}
+                      className={`flex items-center justify-between px-3 py-2 cursor-pointer interactive ${
+                        voice === v.name ? 'bg-orange-500/15 text-orange-300' : 'text-white/70 hover:bg-white/[0.06]'
+                      }`}
+                      onClick={() => { setVoice(v.name); setShowVoiceDropdown(false); }}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold">♂</span>
+                        <span className="text-sm font-medium">{v.label}</span>
+                        {v.desc && <span className="text-[9px] text-white/25">{v.desc}</span>}
+                      </div>
+                      <button onClick={(e) => { e.stopPropagation(); previewVoice(v.name); }}
+                        disabled={previewingVoice !== null}
+                        className="p-1.5 rounded-lg hover:bg-orange-500/20 interactive"
+                        title={`Ouvir ${v.name}`}>
+                        {previewingVoice === v.name ? (
+                          <div className="animate-spin rounded-full h-3 w-3 border border-white/20 border-t-orange-400" />
+                        ) : (
+                          <Play className="w-3 h-3 fill-current text-white/30 hover:text-orange-400" />
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                  {/* Divisor */}
+                  <div className="border-t border-white/[0.06] mx-3 my-1" />
+                  {/* Femininas */}
+                  <div className="px-3 pt-2 pb-1">
+                    <span className="text-[9px] uppercase tracking-[0.15em] text-pink-400/60 font-bold">♀ Femininas</span>
+                  </div>
+                  {VOICES.filter(v => v.gender === 'F').map((v) => (
+                    <div key={v.name}
+                      className={`flex items-center justify-between px-3 py-2 cursor-pointer interactive ${
+                        voice === v.name ? 'bg-orange-500/15 text-orange-300' : 'text-white/70 hover:bg-white/[0.06]'
+                      }`}
+                      onClick={() => { setVoice(v.name); setShowVoiceDropdown(false); }}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] bg-pink-500/20 text-pink-300 px-1.5 py-0.5 rounded font-bold">♀</span>
+                        <span className="text-sm font-medium">{v.label}</span>
+                      </div>
+                      <button onClick={(e) => { e.stopPropagation(); previewVoice(v.name); }}
+                        disabled={previewingVoice !== null}
+                        className="p-1.5 rounded-lg hover:bg-orange-500/20 interactive"
+                        title={`Ouvir ${v.name}`}>
+                        {previewingVoice === v.name ? (
+                          <div className="animate-spin rounded-full h-3 w-3 border border-white/20 border-t-orange-400" />
+                        ) : (
+                          <Play className="w-3 h-3 fill-current text-white/30 hover:text-orange-400" />
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* === ENTONAÇÃO + VELOCIDADE === */}
+          <div className="p-4 border-b border-white/[0.06]">
+            <label className="text-[10px] uppercase tracking-[0.15em] text-white/40 font-bold mb-2 block">
+              Entonação da Voz
+            </label>
+            <div className="grid grid-cols-3 gap-1.5 mb-4">
+              {TTS_STYLES.map(s => (
+                <button key={s.id} onClick={() => setTtsStyle(s.id)}
+                  className={`px-2 py-2 rounded-lg text-[10px] font-medium border interactive ${
+                    ttsStyle === s.id
+                      ? 'bg-orange-500/20 border-orange-500/40 text-orange-300'
+                      : 'bg-white/[0.04] border-white/[0.08] text-white/50 hover:bg-white/[0.08]'
+                  }`}
+                  title={s.desc}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+
+            <label className="text-[10px] uppercase tracking-[0.15em] text-white/40 font-bold flex justify-between mb-2">
+              Velocidade <span className="text-orange-400/80">{speed.toFixed(1)}x</span>
+            </label>
+            <input type="range" min="0.5" max="2.0" step="0.1" value={speed}
+              onChange={(e) => setSpeed(parseFloat(e.target.value))}
+              className="w-full accent-orange-500" />
+            <div className="flex justify-between text-[9px] text-white/20 mt-1">
+              <span>Lento</span><span>Rápido</span>
+            </div>
+          </div>
+
+          {/* === GERAR / IMPORTAR / DOWNLOAD === */}
+          <div className="p-4 border-b border-white/[0.06]">
+            <button onClick={handleConvert} disabled={isConverting}
+              className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 disabled:from-white/[0.06] disabled:to-white/[0.06] disabled:text-white/20 py-3 rounded-xl font-bold flex items-center justify-center gap-2 interactive shadow-lg shadow-orange-900/20 mb-2">
+              {isConverting ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white/20 border-t-white" />
+              ) : (
+                <><Zap className="w-5 h-5 fill-current" />GERAR ÁUDIO</>
+              )}
+            </button>
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <input type="file" accept="audio/*" className="hidden" id="import-voice-file"
+                  onChange={(e) => { if (e.target.files?.[0]) { importVoiceFile(e.target.files[0]); e.target.value = ''; } }} />
+                <label htmlFor="import-voice-file" title="Importar áudio de locução existente"
+                  className="w-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 interactive cursor-pointer text-white/50 hover:text-white/70">
+                  <Upload className="w-4 h-4" /> Importar
+                </label>
+              </div>
+              {lastGeneratedPcm && (
+                <button onClick={downloadTtsAudio} title="Baixar locução sem mixar"
+                  className="flex-1 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 interactive text-white/50 hover:text-white/70">
+                  <Download className="w-4 h-4" /> Download
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* === HISTORY === */}
+          <div className="flex-1 flex flex-col min-h-0 border-b border-white/[0.06]">
+            <div className="p-4 pb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-white/40" />
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">Histórico</h2>
+              </div>
+              <span className="text-[10px] bg-white/[0.06] rounded-md px-2 py-0.5 text-white/35 font-mono">{history.length}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2 custom-scrollbar">
+              <AnimatePresence initial={false}>
+                {history.map((item) => (
+                  <motion.div key={item.id}
+                    initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                    className="bg-white/[0.04] border border-white/[0.08] rounded-xl p-3 group hover:border-orange-500/25 interactive">
+                    <p className="text-xs text-white/80 line-clamp-2 mb-2 italic">&quot;{item.text}&quot;</p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] uppercase bg-white/[0.06] rounded px-1.5 py-0.5 text-white/40 font-mono">{item.voice}</span>
+                        <span className="text-[9px] text-white/20 font-mono">{new Date(item.timestamp).toLocaleTimeString()}</span>
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 interactive">
+                        <button onClick={() => playHistoryItem(item)} title="Reproduzir"
+                          className="p-1.5 hover:bg-orange-500/20 rounded-lg text-white/40 hover:text-orange-400 interactive">
+                          <Play className="w-3.5 h-3.5" />
+                        </button>
+                        {playlists.length > 0 && (
+                          <select className="bg-white/[0.06] text-[9px] text-white/40 rounded px-1 py-1 cursor-pointer focus:outline-none"
+                            defaultValue="" onChange={(e) => { if (e.target.value) { addToPlaylist(e.target.value, item.id); e.target.value = ''; } }}>
+                            <option value="" disabled>+ Playlist</option>
+                            {playlists.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
+                          </select>
+                        )}
+                        <button onClick={() => downloadAudio(item)} title="Download"
+                          className="p-1.5 hover:bg-white/[0.08] rounded-lg text-white/40 hover:text-white/70 interactive">
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => deleteHistoryItem(item.id)} title="Excluir"
+                          className="p-1.5 hover:bg-red-500/20 rounded-lg text-white/40 hover:text-red-400 interactive">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              {history.length === 0 && (
+                <div className="flex flex-col items-center justify-center text-white/[0.08] py-8">
+                  <Clock className="w-8 h-8 mb-2" />
+                  <p className="text-[10px] uppercase tracking-[0.15em] font-bold">Sem registros</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* === PLAYLISTS === */}
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <ListMusic className="w-4 h-4 text-white/40" />
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">Playlists</h2>
+              </div>
+              <button onClick={() => setShowNewPlaylist(!showNewPlaylist)} className="p-1.5 bg-white/[0.04] rounded-lg hover:bg-white/[0.08] interactive">
+                {showNewPlaylist ? <X className="w-4 h-4 text-white/40" /> : <Plus className="w-4 h-4 text-white/40" />}
+              </button>
+            </div>
+
+            {showNewPlaylist && (
+              <div className="flex gap-2 mb-3">
+                <input value={newPlaylistName} onChange={(e) => setNewPlaylistName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && createPlaylist()}
+                  placeholder="Nome da playlist..."
+                  className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-orange-500/50 interactive" autoFocus />
+                <button onClick={createPlaylist} className="px-3 py-2 bg-gradient-to-r from-orange-600 to-orange-500 rounded-lg text-xs font-bold interactive">Criar</button>
+              </div>
+            )}
+
+            <div className="space-y-2 max-h-[250px] overflow-y-auto custom-scrollbar">
+              {playlists.map((pl) => (
+                <div key={pl.id}
+                  className={`bg-white/[0.04] border rounded-xl p-3 interactive ${activePlaylist === pl.id ? 'border-orange-500/30 bg-orange-500/[0.06]' : 'border-white/[0.08] hover:border-white/[0.12]'}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div>
+                      <h3 className={`text-xs font-bold ${activePlaylist === pl.id ? 'text-orange-400' : 'text-white/80'}`}>{pl.name}</h3>
+                      <p className="text-[10px] text-white/30 font-mono">{pl.items.length} locuções</p>
+                    </div>
+                    <div className="flex gap-1">
+                      <button onClick={() => playPlaylist(pl.id)} disabled={pl.items.length === 0 || activePlaylist !== null}
+                        className="bg-gradient-to-r from-orange-600 to-orange-500 disabled:from-white/[0.06] disabled:to-white/[0.06] p-2 rounded-lg shadow-lg shadow-orange-900/20 disabled:shadow-none interactive">
+                        <Play className="w-4 h-4 fill-current" />
+                      </button>
+                      <button onClick={() => deletePlaylist(pl.id)}
+                        className="p-2 bg-white/[0.04] rounded-lg hover:bg-red-500/20 text-white/40 hover:text-red-400 interactive">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  {pl.items.length > 0 && (
+                    <div className="space-y-1 mt-2 border-t border-white/[0.06] pt-2">
+                      {pl.items.map((itemId, idx) => {
+                        const item = history.find(h => h.id === itemId);
+                        return item ? (
+                          <div key={itemId} className="flex items-center justify-between text-[10px] text-white/40">
+                            <span className="truncate flex-1 font-mono">{idx + 1}. {item.text}</span>
+                            <button onClick={() => removeFromPlaylist(pl.id, itemId)} className="p-1 hover:text-red-400 shrink-0 interactive">
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {playlists.length === 0 && (
+                <div className="text-center text-white/[0.1] py-6">
+                  <ListMusic className="w-6 h-6 mx-auto mb-1" />
+                  <p className="text-[10px] uppercase tracking-[0.15em] font-bold">Sem playlists</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </aside>
+
+        {/* ======== RIGHT: TIMELINE (full width) ======== */}
+        <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar p-5">
+          <section className="glass rounded-2xl p-6 glow-green flex-1 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Timer className="w-4 h-4 text-green-400" />
-                <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">Timeline</h2>
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/60">Timeline</h2>
               </div>
               <div className="flex items-center gap-2">
                 {lastGeneratedPcm && (
-                  <span className="text-[10px] glass rounded-lg px-2.5 py-1 text-white/30 font-mono">
+                  <span className="text-[10px] bg-white/[0.06] rounded-lg px-2.5 py-1 text-white/40 font-mono">
                     TTS {ttsDuration.toFixed(1)}s
                   </span>
                 )}
@@ -1087,15 +1231,17 @@ export default function SoundTruckTTS() {
             </div>
 
             {!lastGeneratedPcm ? (
-              <p className="text-xs text-white/20 text-center py-8">
-                Gere um áudio primeiro para montar a timeline de efeitos e música
-              </p>
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-sm text-white/25 text-center py-8">
+                  Gere um áudio primeiro para montar a timeline de efeitos e música
+                </p>
+              </div>
             ) : (
               <>
                 {/* Visual Timeline Bar - Draggable */}
-                <div ref={timelineBarRef} className="relative bg-black/30 rounded-xl mb-4 border border-white/[0.04] p-3 select-none">
+                <div ref={timelineBarRef} className="relative bg-black/30 rounded-xl mb-4 border border-white/[0.06] p-3 select-none">
                   {/* Time ruler */}
-                  <div className="flex justify-between text-[8px] text-white/20 mb-2 px-1 font-mono">
+                  <div className="flex justify-between text-[9px] text-white/25 mb-2 px-1 font-mono">
                     {Array.from({ length: Math.min(Math.ceil(totalTimelineDuration) + 1, 11) }, (_, i) => {
                       const totalSecs = Math.ceil(totalTimelineDuration);
                       const sec = totalSecs <= 10 ? i : Math.round(i * totalSecs / 10);
@@ -1104,11 +1250,11 @@ export default function SoundTruckTTS() {
                   </div>
 
                   {/* TTS track - draggable with trim handles */}
-                  <div className="relative h-8 mb-1">
-                    <div className="absolute inset-y-0 track-tts rounded-lg flex items-center gap-0 touch-none border border-orange-500/20"
+                  <div className="relative h-10 mb-1">
+                    <div className="absolute inset-y-0 track-tts rounded-lg flex items-center gap-0 touch-none border border-orange-500/25"
                       style={{ left: `${(ttsStartTime / totalTimelineDuration) * 100}%`, width: `${(ttsDuration / totalTimelineDuration) * 100}%` }}>
                       {/* Left trim handle */}
-                      <div className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-20 flex items-center justify-center hover:bg-orange-400/30 rounded-l"
+                      <div className="absolute left-0 top-0 bottom-0 w-2.5 cursor-col-resize z-20 flex items-center justify-center hover:bg-orange-400/30 rounded-l"
                         onPointerDown={(e) => {
                           e.preventDefault(); e.stopPropagation();
                           const bar = timelineBarRef.current; if (!bar) return;
@@ -1127,11 +1273,11 @@ export default function SoundTruckTTS() {
                           const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
                           window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
                         }}>
-                        <div className="w-0.5 h-3 bg-orange-400/60 rounded" />
+                        <div className="w-0.5 h-4 bg-orange-400/70 rounded" />
                       </div>
 
                       {/* Center drag area */}
-                      <div className="flex-1 flex items-center px-3 gap-1 cursor-grab active:cursor-grabbing min-w-0"
+                      <div className="flex-1 flex items-center px-3 gap-2 cursor-grab active:cursor-grabbing min-w-0"
                         onPointerDown={(e) => {
                           if ((e.target as HTMLElement).closest('input')) return;
                           e.preventDefault();
@@ -1147,15 +1293,15 @@ export default function SoundTruckTTS() {
                           const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
                           window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
                         }}>
-                        <span className="text-[9px] text-orange-300 font-bold truncate">🎙️ {ttsTrimStart > 0 ? `✂${ttsTrimStart.toFixed(1)}s ` : ''}({ttsDuration.toFixed(1)}s)</span>
+                        <span className="text-[10px] text-orange-200 font-bold truncate">🎙️ Locução {ttsTrimStart > 0 ? `✂${ttsTrimStart.toFixed(1)}s ` : ''}({ttsDuration.toFixed(1)}s)</span>
                         <input type="number" min="0" step="0.5" value={ttsStartTime}
                           onChange={(e) => { setTtsStartTime(Math.max(0, parseFloat(e.target.value) || 0)); mixedBufferRef.current = null; }}
-                          className="w-12 bg-black/50 border border-orange-500/30 rounded px-1 py-0 text-[8px] text-orange-300 focus:outline-none text-center"
+                          className="w-14 bg-black/50 border border-orange-500/30 rounded px-1.5 py-0.5 text-[9px] text-orange-300 focus:outline-none text-center"
                           title="Posição na timeline (segundos)" />
                       </div>
 
                       {/* Right trim handle */}
-                      <div className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-20 flex items-center justify-center hover:bg-orange-400/30 rounded-r"
+                      <div className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize z-20 flex items-center justify-center hover:bg-orange-400/30 rounded-r"
                         onPointerDown={(e) => {
                           e.preventDefault(); e.stopPropagation();
                           const bar = timelineBarRef.current; if (!bar) return;
@@ -1171,15 +1317,15 @@ export default function SoundTruckTTS() {
                           const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
                           window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
                         }}>
-                        <div className="w-0.5 h-3 bg-orange-400/60 rounded" />
+                        <div className="w-0.5 h-4 bg-orange-400/70 rounded" />
                       </div>
                     </div>
                   </div>
 
                   {/* Background music track - integrated controls */}
-                  <div className="relative h-8 mb-1">
+                  <div className="relative h-10 mb-1">
                     {selectedMusic ? (
-                      <div className="absolute inset-y-0 track-music rounded-lg flex items-center gap-0 group/music touch-none border border-blue-500/20"
+                      <div className="absolute inset-y-0 track-music rounded-lg flex items-center gap-0 group/music touch-none border border-blue-500/25"
                         style={{
                           left: `${(bgMusicStartTime / totalTimelineDuration) * 100}%`,
                           width: bgMusicEndTime !== null
@@ -1187,8 +1333,7 @@ export default function SoundTruckTTS() {
                             : `${((totalTimelineDuration - bgMusicStartTime) / totalTimelineDuration) * 100}%`,
                         }}>
                         {/* Left trim handle */}
-                        {/* Left trim handle - trims the beginning of the music file */}
-                        <div className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize z-20 flex items-center justify-center hover:bg-blue-400/30 rounded-l"
+                        <div className="absolute left-0 top-0 bottom-0 w-2.5 cursor-col-resize z-20 flex items-center justify-center hover:bg-blue-400/30 rounded-l"
                           onPointerDown={(e) => {
                             e.preventDefault(); e.stopPropagation();
                             const bar = timelineBarRef.current; if (!bar) return;
@@ -1207,11 +1352,11 @@ export default function SoundTruckTTS() {
                             const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
                             window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
                           }}>
-                          <div className="w-0.5 h-3 bg-blue-400/60 rounded" />
+                          <div className="w-0.5 h-4 bg-blue-400/70 rounded" />
                         </div>
 
                         {/* Center drag area - moves whole bar */}
-                        <div className="flex-1 flex items-center px-3 gap-1 cursor-grab active:cursor-grabbing min-w-0"
+                        <div className="flex-1 flex items-center px-3 gap-2 cursor-grab active:cursor-grabbing min-w-0"
                           onPointerDown={(e) => {
                             if ((e.target as HTMLElement).closest('input, button, select')) return;
                             e.preventDefault();
@@ -1231,29 +1376,28 @@ export default function SoundTruckTTS() {
                             const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
                             window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
                           }}>
-                          <span className="text-[9px] text-blue-400/80 truncate">🎵{bgMusicTrimStart > 0 ? ` ✂${bgMusicTrimStart.toFixed(1)}s` : ''}</span>
+                          <span className="text-[10px] text-blue-200 font-medium truncate">🎵 Música{bgMusicTrimStart > 0 ? ` ✂${bgMusicTrimStart.toFixed(1)}s` : ''}</span>
                           <input type="number" min="0" step="0.5" value={bgMusicStartTime}
                             onChange={(e) => { setBgMusicStartTime(Math.max(0, parseFloat(e.target.value) || 0)); mixedBufferRef.current = null; }}
-                            className="w-10 bg-black/50 border border-blue-500/30 rounded px-0.5 py-0 text-[7px] text-blue-300 focus:outline-none text-center"
+                            className="w-12 bg-black/50 border border-blue-500/30 rounded px-1 py-0.5 text-[8px] text-blue-300 focus:outline-none text-center"
                             title="Início (s)" />
-                          <span className="text-[7px] text-blue-400/40">-</span>
+                          <span className="text-[8px] text-blue-400/40">-</span>
                           <input type="number" min="0" step="0.5" value={bgMusicEndTime ?? ''}
                             placeholder="∞"
                             onChange={(e) => { const v = parseFloat(e.target.value); setBgMusicEndTime(isNaN(v) ? null : Math.max(bgMusicStartTime + 0.5, v)); mixedBufferRef.current = null; }}
-                            className="w-10 bg-black/50 border border-blue-500/30 rounded px-0.5 py-0 text-[7px] text-blue-300 focus:outline-none text-center placeholder:text-blue-400/20"
+                            className="w-12 bg-black/50 border border-blue-500/30 rounded px-1 py-0.5 text-[8px] text-blue-300 focus:outline-none text-center placeholder:text-blue-400/20"
                             title="Fim (s) — vazio = até o final" />
                           <input type="range" min="0" max="3" step="0.05" value={bgMusicVolume}
                             onChange={(e) => { setBgMusicVolume(parseFloat(e.target.value)); mixedBufferRef.current = null; }}
-                            className="w-14 accent-blue-500 h-1" title={`Volume: ${Math.round(bgMusicVolume * 100)}%`}
-                            style={{ background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(bgMusicVolume / 3) * 100}%, rgba(255,255,255,0.1) ${(bgMusicVolume / 3) * 100}%)` }} />
-                          <span className={`text-[8px] w-8 text-right ${bgMusicVolume > 1 ? 'text-yellow-400' : 'text-blue-400/60'}`}>{Math.round(bgMusicVolume * 100)}%</span>
-                          <button onClick={() => { setSelectedMusic(null); setBgMusicTrimStart(0); setBgMusicStartTime(0); setBgMusicEndTime(null); mixedBufferRef.current = null; }} className="text-blue-400/40 hover:text-red-400">
-                            <X className="w-3 h-3" />
+                            className="w-16 accent-blue-500 h-1" title={`Volume: ${Math.round(bgMusicVolume * 100)}%`} />
+                          <span className={`text-[9px] w-8 text-right font-mono ${bgMusicVolume > 1 ? 'text-yellow-400' : 'text-blue-300/60'}`}>{Math.round(bgMusicVolume * 100)}%</span>
+                          <button onClick={() => { setSelectedMusic(null); setBgMusicTrimStart(0); setBgMusicStartTime(0); setBgMusicEndTime(null); mixedBufferRef.current = null; }} className="text-blue-400/50 hover:text-red-400">
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
 
                         {/* Right trim handle */}
-                        <div className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize z-20 flex items-center justify-center hover:bg-blue-400/30 rounded-r"
+                        <div className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize z-20 flex items-center justify-center hover:bg-blue-400/30 rounded-r"
                           onPointerDown={(e) => {
                             e.preventDefault(); e.stopPropagation();
                             const bar = timelineBarRef.current; if (!bar) return;
@@ -1268,19 +1412,19 @@ export default function SoundTruckTTS() {
                             const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
                             window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
                           }}>
-                          <div className="w-0.5 h-3 bg-blue-400/60 rounded" />
+                          <div className="w-0.5 h-4 bg-blue-400/70 rounded" />
                         </div>
                       </div>
                     ) : (
-                      <div className="absolute inset-y-0 left-0 w-full rounded-lg border border-dashed border-blue-500/10 flex items-center justify-center gap-2 bg-blue-500/[0.03]">
+                      <div className="absolute inset-y-0 left-0 w-full rounded-lg border border-dashed border-blue-500/15 flex items-center justify-center gap-2 bg-blue-500/[0.04]">
                         {savedMusics.length > 0 ? (
-                          <select className="bg-transparent text-[9px] text-blue-400/30 focus:outline-none cursor-pointer"
+                          <select className="bg-transparent text-[10px] text-blue-300/40 focus:outline-none cursor-pointer"
                             defaultValue="" onChange={(e) => { if (e.target.value) setSelectedMusic(e.target.value); }}>
                             <option value="" disabled>🎵 Selecionar música de fundo...</option>
                             {savedMusics.map(m => <option key={m.name} value={m.url}>{m.name}</option>)}
                           </select>
                         ) : (
-                          <span className="text-[9px] text-blue-400/25">🎵 Sem música (faça upload abaixo)</span>
+                          <span className="text-[10px] text-blue-300/30">🎵 Sem música (faça upload abaixo)</span>
                         )}
                       </div>
                     )}
@@ -1292,7 +1436,7 @@ export default function SoundTruckTTS() {
                       <input type="file" accept="audio/*" className="hidden" id="bg-music-upload-tl"
                         onChange={(e) => e.target.files?.[0] && handleMusicUpload(e.target.files[0])} />
                       <label htmlFor="bg-music-upload-tl"
-                        className="flex items-center justify-center py-1 cursor-pointer text-[9px] text-blue-400/30 hover:text-blue-400/60 transition-all">
+                        className="flex items-center justify-center py-1.5 cursor-pointer text-[10px] text-blue-300/30 hover:text-blue-300/60 transition-all">
                         {isUploadingMusic ? (
                           <div className="animate-spin rounded-full h-3 w-3 border border-white/20 border-t-blue-400" />
                         ) : (
@@ -1302,12 +1446,12 @@ export default function SoundTruckTTS() {
                     </div>
                   )}
 
-                  {/* Effects tracks - multiple layers for overlapping effects */}
+                  {/* Effects tracks */}
                   {Array.from({ length: numEffectLayers }, (_, layerIndex) => (
-                    <div key={layerIndex} className="relative h-8 mt-1">
-                      <div className="absolute inset-y-0 left-0 w-full track-effect rounded-lg border border-green-500/10">
+                    <div key={layerIndex} className="relative h-10 mt-1">
+                      <div className="absolute inset-y-0 left-0 w-full track-effect rounded-lg border border-green-500/15">
                         {layerIndex === 0 && timelineItems.length === 0 && (
-                          <span className="absolute inset-0 flex items-center justify-center text-[9px] text-white/10">
+                          <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white/15">
                             Arraste efeitos aqui ou clique + Adicionar
                           </span>
                         )}
@@ -1322,13 +1466,13 @@ export default function SoundTruckTTS() {
                               onPointerDown={(e) => handleTimelineDragStart(e, item.id)}
                               title={`${eff?.name} @ ${item.startTime}s (vol ${Math.round(item.volume * 100)}%) — arraste para mover`}
                             >
-                              <div className={`rounded-md px-1.5 py-0.5 flex items-center gap-0.5 cursor-grab active:cursor-grabbing interactive ${
+                              <div className={`rounded-md px-2 py-1 flex items-center gap-1 cursor-grab active:cursor-grabbing interactive ${
                                 isDragging
                                   ? 'bg-green-500/30 border-2 border-green-400 scale-110 shadow-lg shadow-green-500/20'
-                                  : 'bg-green-500/15 border border-green-500/25 hover:bg-green-500/25'
+                                  : 'bg-green-500/15 border border-green-500/30 hover:bg-green-500/25'
                               }`}>
-                                <span className="text-xs">{eff?.emoji}</span>
-                                <span className="text-[8px] text-green-400/70 font-mono">{item.startTime.toFixed(1)}s</span>
+                                <span className="text-sm">{eff?.emoji}</span>
+                                <span className="text-[9px] text-green-300/80 font-mono">{item.startTime.toFixed(1)}s</span>
                               </div>
                             </div>
                           );
@@ -1337,7 +1481,7 @@ export default function SoundTruckTTS() {
                     </div>
                   ))}
 
-                  {/* Playhead - draggable when paused */}
+                  {/* Playhead */}
                   {(isPlaying || playheadTime > 0) && (
                     <div
                       className={`absolute top-0 bottom-0 w-0.5 z-30 ${isPlaying ? 'bg-red-500 pointer-events-none playhead-active' : 'bg-yellow-400 cursor-ew-resize'}`}
@@ -1363,32 +1507,29 @@ export default function SoundTruckTTS() {
                       } : undefined}
                     >
                       <div className={`absolute -top-1 -left-1.5 w-3.5 h-3.5 rounded-full shadow-lg ${isPlaying ? 'bg-red-500 shadow-red-500/30' : 'bg-yellow-400 shadow-yellow-400/30 hover:scale-125 interactive'}`} />
-                      {/* Timecode tooltip when paused */}
                       {!isPlaying && playheadTime > 0 && (
-                        <div className="absolute -top-7 -left-6 glass rounded px-1.5 py-0.5 text-[8px] font-mono text-yellow-300 whitespace-nowrap pointer-events-none">
+                        <div className="absolute -top-7 -left-6 bg-black/80 border border-white/10 rounded px-1.5 py-0.5 text-[8px] font-mono text-yellow-300 whitespace-nowrap pointer-events-none">
                           {formatTimecode(playheadTime)}
                         </div>
                       )}
                     </div>
                   )}
-
-
                 </div>
 
                 {/* Timeline Items List */}
-                <div className="space-y-1 mb-4 max-h-[150px] overflow-y-auto custom-scrollbar">
+                <div className="space-y-1.5 mb-4 max-h-[180px] overflow-y-auto custom-scrollbar">
                   {timelineItems.length === 0 ? (
-                    <p className="text-[10px] text-white/15 text-center py-2">Nenhum efeito na timeline — adicione abaixo</p>
+                    <p className="text-[10px] text-white/20 text-center py-2">Nenhum efeito na timeline — adicione abaixo</p>
                   ) : (
                     timelineItems.map((item) => {
                       const eff = SOUND_EFFECTS.find(e => e.id === item.sourceId);
                       const isEditingTime = editingItemId === item.id && editingField === 'time';
                       const isEditingVol = editingItemId === item.id && editingField === 'volume';
                       return (
-                        <div key={item.id} className="flex items-center justify-between glass rounded-lg p-2 group hover:border-green-500/20 interactive">
+                        <div key={item.id} className="flex items-center justify-between bg-white/[0.04] border border-white/[0.08] rounded-lg p-2.5 group hover:border-green-500/25 interactive">
                           <div className="flex items-center gap-2">
                             <span>{eff?.emoji}</span>
-                            <span className="text-xs text-white/80">{eff?.name}</span>
+                            <span className="text-xs text-white/90">{eff?.name}</span>
                             {isEditingTime ? (
                               <input type="number" min="0" step="0.5" value={editingValue} autoFocus
                                 className="w-16 bg-black border border-green-500/50 rounded px-1.5 py-0.5 text-[9px] text-green-400 focus:outline-none"
@@ -1398,7 +1539,7 @@ export default function SoundTruckTTS() {
                               />
                             ) : (
                               <button onClick={() => { setEditingItemId(item.id); setEditingField('time'); setEditingValue(item.startTime.toFixed(1)); }}
-                                className="text-[9px] bg-green-500/10 text-green-400/60 px-2 py-0.5 rounded hover:bg-green-500/20 cursor-text"
+                                className="text-[9px] bg-green-500/10 text-green-300/70 px-2 py-0.5 rounded hover:bg-green-500/20 cursor-text"
                                 title="Clique para editar o tempo">
                                 {item.startTime.toFixed(1)}s
                               </button>
@@ -1411,7 +1552,7 @@ export default function SoundTruckTTS() {
                               />
                             ) : (
                               <button onClick={() => { setEditingItemId(item.id); setEditingField('volume'); setEditingValue(String(item.volume)); }}
-                                className="text-[9px] text-white/15 hover:text-white/30 cursor-pointer interactive"
+                                className="text-[9px] text-white/25 hover:text-white/40 cursor-pointer interactive"
                                 title="Clique para ajustar volume">
                                 🔊 {Math.round(item.volume * 100)}%
                               </button>
@@ -1419,12 +1560,12 @@ export default function SoundTruckTTS() {
                           </div>
                           <div className="flex items-center gap-1">
                             <button onClick={() => previewTimelineEffect(item.sourceId)}
-                              className="p-1 hover:bg-green-500/15 rounded text-white/20 hover:text-green-400 interactive">
-                              <Play className="w-3 h-3 fill-current" />
+                              className="p-1.5 hover:bg-green-500/20 rounded text-white/25 hover:text-green-400 interactive">
+                              <Play className="w-3.5 h-3.5 fill-current" />
                             </button>
                             <button onClick={() => removeTimelineItem(item.id)}
-                              className="p-1 hover:bg-red-500/15 rounded text-white/20 hover:text-red-400 interactive">
-                              <X className="w-3 h-3" />
+                              className="p-1.5 hover:bg-red-500/20 rounded text-white/25 hover:text-red-400 interactive">
+                              <X className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
@@ -1435,17 +1576,16 @@ export default function SoundTruckTTS() {
 
                 {/* Add Effect to Timeline */}
                 {showAddTimeline ? (
-                  <div className="space-y-2 glass rounded-xl p-4 border-green-500/15">
-                    {/* Quick effect picker grid */}
-                    <label className="text-[10px] text-white/30 uppercase tracking-[0.15em] font-bold">Escolha o efeito</label>
-                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+                  <div className="space-y-3 bg-white/[0.03] border border-green-500/15 rounded-xl p-4">
+                    <label className="text-[10px] text-white/40 uppercase tracking-[0.15em] font-bold">Escolha o efeito</label>
+                    <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-1.5">
                       {SOUND_EFFECTS.map(e => (
                         <button key={e.id}
                           onClick={() => setTlEffectId(e.id)}
                           className={`p-2 rounded-lg flex flex-col items-center gap-0.5 interactive border ${
                             tlEffectId === e.id
-                              ? 'bg-green-500/15 border-green-500/30 text-green-400'
-                              : 'bg-white/[0.02] border-white/[0.04] text-white/30 hover:bg-white/[0.05]'
+                              ? 'bg-green-500/15 border-green-500/30 text-green-300'
+                              : 'bg-white/[0.03] border-white/[0.06] text-white/40 hover:bg-white/[0.06]'
                           }`}
                         >
                           <span className="text-lg">{e.emoji}</span>
@@ -1453,18 +1593,18 @@ export default function SoundTruckTTS() {
                         </button>
                       ))}
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="text-[10px] text-white/30 uppercase tracking-[0.15em] font-bold">
+                        <label className="text-[10px] text-white/40 uppercase tracking-[0.15em] font-bold">
                           Segundo (0 - {totalTimelineDuration.toFixed(0)}s)
                         </label>
                         <input type="number" min="0" max={totalTimelineDuration + 10} step="0.5" value={tlTime}
                           onChange={(e) => setTlTime(e.target.value)}
-                          className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2 text-xs mt-1 focus:outline-none focus:border-green-500/40 interactive" />
+                          className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/80 mt-1 focus:outline-none focus:border-green-500/40 interactive" />
                       </div>
                       <div>
-                        <label className="text-[10px] text-white/30 uppercase tracking-[0.15em] font-bold flex justify-between">
-                          Volume <span className="text-white/40">{Math.round(tlVolume * 100)}%</span>
+                        <label className="text-[10px] text-white/40 uppercase tracking-[0.15em] font-bold flex justify-between">
+                          Volume <span className="text-white/50">{Math.round(tlVolume * 100)}%</span>
                         </label>
                         <input type="range" min="0" max="3" step="0.05" value={tlVolume}
                           onChange={(e) => setTlVolume(parseFloat(e.target.value))}
@@ -1473,33 +1613,33 @@ export default function SoundTruckTTS() {
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => previewTimelineEffect(tlEffectId)}
-                        className="p-2 glass rounded-lg text-white/30 text-xs flex items-center gap-1 interactive hover:text-green-400">
-                        <Headphones className="w-3 h-3" /> Ouvir
+                        className="p-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-white/40 text-xs flex items-center gap-1 interactive hover:text-green-400">
+                        <Headphones className="w-3.5 h-3.5" /> Ouvir
                       </button>
                       <button onClick={addTimelineEffect}
-                        className="flex-1 p-2 bg-gradient-to-r from-green-600 to-green-500 rounded-lg text-white text-xs font-bold interactive">
+                        className="flex-1 p-2.5 bg-gradient-to-r from-green-600 to-green-500 rounded-lg text-white text-xs font-bold interactive">
                         <Check className="w-4 h-4 inline mr-1" /> Adicionar
                       </button>
                       <button onClick={() => setShowAddTimeline(false)}
-                        className="p-2 glass rounded-lg text-white/30 interactive"><X className="w-4 h-4" /></button>
+                        className="p-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-white/40 interactive"><X className="w-4 h-4" /></button>
                     </div>
                   </div>
                 ) : (
                   <button onClick={() => setShowAddTimeline(true)}
-                    className="w-full py-2.5 border border-dashed border-green-500/15 rounded-xl text-[10px] uppercase tracking-[0.15em] text-green-400/30 font-bold hover:bg-green-500/[0.03] hover:text-green-400/50 interactive">
+                    className="w-full py-3 border border-dashed border-green-500/20 rounded-xl text-[10px] uppercase tracking-[0.15em] text-green-300/40 font-bold hover:bg-green-500/[0.04] hover:text-green-300/60 interactive">
                     + Adicionar Efeito na Timeline
                   </button>
                 )}
 
                 {/* Template Save/Load */}
-                <div className="mt-4 border-t border-white/[0.04] pt-4">
+                <div className="mt-4 border-t border-white/[0.06] pt-4">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <FolderOpen className="w-3.5 h-3.5 text-purple-400/60" />
-                      <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/30">Templates</span>
+                      <FolderOpen className="w-3.5 h-3.5 text-purple-400/70" />
+                      <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">Templates</span>
                     </div>
                     <button onClick={() => setShowSaveTemplate(!showSaveTemplate)}
-                      className="p-1.5 glass rounded-lg hover:bg-white/[0.06] text-white/30 hover:text-purple-400 interactive"
+                      className="p-1.5 bg-white/[0.04] rounded-lg hover:bg-white/[0.08] text-white/40 hover:text-purple-400 interactive"
                       title="Salvar template atual"
                     >
                       <Save className="w-3.5 h-3.5" />
@@ -1511,31 +1651,31 @@ export default function SoundTruckTTS() {
                       <input value={newTemplateName} onChange={(e) => setNewTemplateName(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && saveTemplate()}
                         placeholder="Nome do template..."
-                        className="flex-1 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-purple-500/40 interactive"
+                        className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-purple-500/40 interactive"
                         autoFocus />
                       <button onClick={saveTemplate}
                         className="px-3 py-2 bg-purple-600 rounded-lg text-xs font-bold interactive">Salvar</button>
                       <button onClick={() => setShowSaveTemplate(false)}
-                        className="p-2 glass rounded-lg text-white/30 interactive"><X className="w-4 h-4" /></button>
+                        className="p-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-white/40 interactive"><X className="w-4 h-4" /></button>
                     </div>
                   )}
 
                   {templates.length > 0 ? (
                     <div className="space-y-1 max-h-[120px] overflow-y-auto custom-scrollbar">
                       {templates.map(tpl => (
-                        <div key={tpl.id} className="flex items-center justify-between glass rounded-lg p-2 group hover:border-purple-500/15 interactive">
+                        <div key={tpl.id} className="flex items-center justify-between bg-white/[0.04] border border-white/[0.08] rounded-lg p-2 group hover:border-purple-500/20 interactive">
                           <div className="flex items-center gap-2">
-                            <FolderOpen className="w-3 h-3 text-purple-400/40" />
-                            <span className="text-xs text-white/60">{tpl.name}</span>
-                            <span className="text-[9px] text-white/15 font-mono">{tpl.items.length} fx</span>
+                            <FolderOpen className="w-3 h-3 text-purple-400/50" />
+                            <span className="text-xs text-white/70">{tpl.name}</span>
+                            <span className="text-[9px] text-white/25 font-mono">{tpl.items.length} fx</span>
                           </div>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 interactive">
                             <button onClick={() => loadTemplate(tpl)}
-                              className="px-2 py-1 bg-purple-500/15 rounded text-purple-400 text-[9px] font-bold hover:bg-purple-500/25 interactive">
+                              className="px-2 py-1 bg-purple-500/15 rounded text-purple-300 text-[9px] font-bold hover:bg-purple-500/25 interactive">
                               Carregar
                             </button>
                             <button onClick={() => deleteTemplate(tpl.id)}
-                              className="p-1 hover:bg-red-500/15 rounded text-white/20 hover:text-red-400 interactive">
+                              className="p-1 hover:bg-red-500/20 rounded text-white/25 hover:text-red-400 interactive">
                               <Trash2 className="w-3 h-3" />
                             </button>
                           </div>
@@ -1543,7 +1683,7 @@ export default function SoundTruckTTS() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[10px] text-white/10 text-center py-1">Nenhum template salvo</p>
+                    <p className="text-[10px] text-white/15 text-center py-1">Nenhum template salvo</p>
                   )}
                 </div>
 
@@ -1562,7 +1702,7 @@ export default function SoundTruckTTS() {
                     </>
                   ) : (
                     <button onClick={playMix} disabled={isMixing}
-                      className="flex-1 py-3 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 disabled:from-white/5 disabled:to-white/5 disabled:text-white/20 rounded-xl text-xs font-bold flex items-center justify-center gap-2 interactive shadow-lg shadow-green-900/20">
+                      className="flex-1 py-3 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 disabled:from-white/[0.06] disabled:to-white/[0.06] disabled:text-white/20 rounded-xl text-xs font-bold flex items-center justify-center gap-2 interactive shadow-lg shadow-green-900/20">
                       {isMixing ? (
                         <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white" />
                       ) : (
@@ -1571,139 +1711,12 @@ export default function SoundTruckTTS() {
                     </button>
                   )}
                   <button onClick={exportMix} disabled={isMixing}
-                    className="flex-1 py-3 glass hover:bg-white/[0.06] rounded-xl text-xs font-bold flex items-center justify-center gap-2 interactive">
-                    <Download className="w-4 h-4 text-white/50" /> EXPORTAR WAV
+                    className="flex-1 py-3 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-xl text-xs font-bold flex items-center justify-center gap-2 interactive text-white/60">
+                    <Download className="w-4 h-4" /> EXPORTAR WAV
                   </button>
                 </div>
               </>
             )}
-          </section>
-        </div>
-
-        {/* ======== RIGHT COLUMN ======== */}
-        <div className="lg:col-span-4 space-y-5">
-
-          {/* === HISTORY === */}
-          <section className="glass rounded-2xl flex flex-col h-[400px]">
-            <div className="p-4 border-b border-white/[0.04] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-white/30" />
-                <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/40">Histórico</h2>
-              </div>
-              <span className="text-[10px] glass rounded-md px-2 py-0.5 text-white/25 font-mono">{history.length}</span>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 custom-scrollbar">
-              <AnimatePresence initial={false}>
-                {history.map((item) => (
-                  <motion.div key={item.id}
-                    initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-                    className="glass rounded-xl p-3 group hover:border-orange-500/20 interactive">
-                    <p className="text-xs text-white/70 line-clamp-2 mb-2 italic">&quot;{item.text}&quot;</p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] uppercase glass rounded px-1.5 py-0.5 text-white/30 font-mono">{item.voice}</span>
-                        <span className="text-[9px] text-white/15 font-mono">{new Date(item.timestamp).toLocaleTimeString()}</span>
-                      </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 interactive">
-                        <button onClick={() => playHistoryItem(item)} title="Reproduzir"
-                          className="p-1.5 hover:bg-orange-500/15 rounded-lg text-white/30 hover:text-orange-400 interactive">
-                          <Play className="w-3.5 h-3.5" />
-                        </button>
-                        {playlists.length > 0 && (
-                          <select className="glass text-[9px] text-white/30 rounded px-1 py-1 cursor-pointer focus:outline-none"
-                            defaultValue="" onChange={(e) => { if (e.target.value) { addToPlaylist(e.target.value, item.id); e.target.value = ''; } }}>
-                            <option value="" disabled>+ Playlist</option>
-                            {playlists.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
-                          </select>
-                        )}
-                        <button onClick={() => downloadAudio(item)} title="Download"
-                          className="p-1.5 hover:bg-white/[0.06] rounded-lg text-white/30 hover:text-white/60 interactive">
-                          <Download className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => deleteHistoryItem(item.id)} title="Excluir"
-                          className="p-1.5 hover:bg-red-500/15 rounded-lg text-white/30 hover:text-red-400 interactive">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-              {history.length === 0 && (
-                <div className="h-full flex flex-col items-center justify-center text-white/[0.06] py-10">
-                  <Clock className="w-10 h-10 mb-2" />
-                  <p className="text-xs uppercase tracking-[0.15em] font-bold">Sem registros</p>
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* === PLAYLISTS === */}
-          <section className="glass rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <ListMusic className="w-4 h-4 text-white/30" />
-                <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/40">Playlists</h2>
-              </div>
-              <button onClick={() => setShowNewPlaylist(!showNewPlaylist)} className="p-1.5 glass rounded-lg hover:bg-white/[0.06] interactive">
-                {showNewPlaylist ? <X className="w-4 h-4 text-white/30" /> : <Plus className="w-4 h-4 text-white/30" />}
-              </button>
-            </div>
-
-            {showNewPlaylist && (
-              <div className="flex gap-2 mb-4">
-                <input value={newPlaylistName} onChange={(e) => setNewPlaylistName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && createPlaylist()}
-                  placeholder="Nome da playlist..."
-                  className="flex-1 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-orange-500/40 interactive" autoFocus />
-                <button onClick={createPlaylist} className="px-3 py-2 bg-gradient-to-r from-orange-600 to-orange-500 rounded-lg text-xs font-bold interactive">Criar</button>
-              </div>
-            )}
-
-            <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
-              {playlists.map((pl) => (
-                <div key={pl.id}
-                  className={`glass rounded-xl p-4 interactive ${activePlaylist === pl.id ? 'border-orange-500/20 glow-orange' : 'hover:border-white/10'}`}>
-                  <div className="flex items-center justify-between mb-1">
-                    <div>
-                      <h3 className={`text-xs font-bold ${activePlaylist === pl.id ? 'text-orange-400' : 'text-white/70'}`}>{pl.name}</h3>
-                      <p className="text-[10px] text-white/25 font-mono">{pl.items.length} locuções</p>
-                    </div>
-                    <div className="flex gap-1">
-                      <button onClick={() => playPlaylist(pl.id)} disabled={pl.items.length === 0 || activePlaylist !== null}
-                        className="bg-gradient-to-r from-orange-600 to-orange-500 disabled:from-white/5 disabled:to-white/5 p-2 rounded-lg shadow-lg shadow-orange-900/20 disabled:shadow-none interactive">
-                        <Play className="w-4 h-4 fill-current" />
-                      </button>
-                      <button onClick={() => deletePlaylist(pl.id)}
-                        className="p-2 glass rounded-lg hover:bg-red-500/15 text-white/30 hover:text-red-400 interactive">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                  {pl.items.length > 0 && (
-                    <div className="space-y-1 mt-2 border-t border-white/[0.04] pt-2">
-                      {pl.items.map((itemId, idx) => {
-                        const item = history.find(h => h.id === itemId);
-                        return item ? (
-                          <div key={itemId} className="flex items-center justify-between text-[10px] text-white/30">
-                            <span className="truncate flex-1 font-mono">{idx + 1}. {item.text}</span>
-                            <button onClick={() => removeFromPlaylist(pl.id, itemId)} className="p-1 hover:text-red-400 shrink-0 interactive">
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ) : null;
-                      })}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {playlists.length === 0 && (
-                <div className="text-center text-white/[0.08] py-8">
-                  <ListMusic className="w-8 h-8 mx-auto mb-2" />
-                  <p className="text-xs uppercase tracking-[0.15em] font-bold">Sem playlists</p>
-                </div>
-              )}
-            </div>
           </section>
         </div>
       </main>
