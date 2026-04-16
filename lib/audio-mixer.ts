@@ -3,7 +3,7 @@
  * into a single audio buffer at specified timestamps.
  */
 
-import { generateEffectBuffer } from './sound-effects';
+import { loadEffectBuffer } from './sound-effects';
 import { pcmToWav } from './audio-converter';
 
 export interface TimelineItem {
@@ -104,25 +104,29 @@ export async function mixAudio(
   // 3. Add timeline effects
   for (const item of timelineItems) {
     if (item.type === 'effect') {
-      // Generate effect using a temporary online context then copy
-      const effectBuffer = generateEffectBuffer(ctx, item.sourceId);
-      if (effectBuffer) {
-        // Re-create buffer in offline context
-        const offBuffer = offlineCtx.createBuffer(
-          1,
-          effectBuffer.length,
-          effectBuffer.sampleRate
-        );
-        offBuffer.getChannelData(0).set(effectBuffer.getChannelData(0));
+      try {
+        // Load effect from MP3 file (uses online ctx for decoding, then copies to offline)
+        const effectBuffer = await loadEffectBuffer(ctx, item.sourceId);
+        if (effectBuffer) {
+          // Re-create buffer in offline context
+          const offBuffer = offlineCtx.createBuffer(
+            1,
+            effectBuffer.length,
+            effectBuffer.sampleRate
+          );
+          offBuffer.getChannelData(0).set(effectBuffer.getChannelData(0));
 
-        const source = offlineCtx.createBufferSource();
-        source.buffer = offBuffer;
+          const source = offlineCtx.createBufferSource();
+          source.buffer = offBuffer;
 
-        const gain = offlineCtx.createGain();
-        gain.gain.value = item.volume;
-        source.connect(gain);
-        gain.connect(offlineCtx.destination);
-        source.start(item.startTime);
+          const gain = offlineCtx.createGain();
+          gain.gain.value = item.volume;
+          source.connect(gain);
+          gain.connect(offlineCtx.destination);
+          source.start(item.startTime);
+        }
+      } catch (e) {
+        console.warn(`Failed to load effect ${item.sourceId}:`, e);
       }
     }
   }
