@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast, Toaster } from 'sonner';
 import { base64ToPcm, pcmToMp3, pcmToWav } from '@/lib/audio-converter';
 import { SOUND_EFFECTS, playEffect, loadEffectBuffer } from '@/lib/sound-effects';
-import { type TimelineItem, mixAudio, audioBufferToWav } from '@/lib/audio-mixer';
+import { type TimelineItem, mixAudio, audioBufferToWav, audioBufferToMp3 } from '@/lib/audio-mixer';
 
 // --- Types ---
 interface Conversion {
@@ -914,7 +914,46 @@ export default function SoundTruckTTS() {
       a.download = `mixagem-carro-som-${Date.now()}.wav`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success('Mixagem exportada!');
+      toast.success('Mixagem exportada (WAV)!');
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao mixar áudio');
+    } finally {
+      setIsMixing(false);
+    }
+  };
+
+  const exportMixMp3 = async () => {
+    if (!lastGeneratedPcm) {
+      toast.error('Gere um áudio primeiro');
+      return;
+    }
+    setIsMixing(true);
+    try {
+      const ctx = initAudioContext();
+      const mixed = await mixAudio(
+        ctx,
+        lastGeneratedPcm,
+        24000,
+        speed,
+        timelineItems,
+        selectedMusic,
+        bgMusicVolume,
+        ttsStartTime,
+        bgMusicStartTime,
+        bgMusicEndTime,
+        bgMusicTrimStart,
+        ttsTrimStart,
+        ttsTrimEnd,
+      );
+      const blob = await audioBufferToMp3(mixed);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mixagem-carro-som-${Date.now()}.mp3`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Mixagem exportada (MP3 - WhatsApp)!');
     } catch (e) {
       console.error(e);
       toast.error('Erro ao mixar áudio');
@@ -2271,8 +2310,12 @@ export default function SoundTruckTTS() {
                     </button>
                   )}
                   <button onClick={exportMix} disabled={isMixing}
-                    className="flex-1 py-3 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-xl text-xs font-bold flex items-center justify-center gap-2 interactive text-white/60">
-                    <Download className="w-4 h-4" /> EXPORTAR WAV
+                    className="py-3 px-4 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-xl text-xs font-bold flex items-center justify-center gap-2 interactive text-white/60">
+                    <Download className="w-4 h-4" /> WAV
+                  </button>
+                  <button onClick={exportMixMp3} disabled={isMixing}
+                    className="py-3 px-4 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 rounded-xl text-xs font-bold flex items-center justify-center gap-2 interactive text-green-300/70" title="MP3 compatível com WhatsApp">
+                    <Download className="w-4 h-4" /> MP3
                   </button>
                 </div>
               </>

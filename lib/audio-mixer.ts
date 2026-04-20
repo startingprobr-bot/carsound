@@ -190,3 +190,44 @@ export function audioBufferToWav(buffer: AudioBuffer): Blob {
 
   return new Blob([wavBuffer], { type: 'audio/wav' });
 }
+
+/**
+ * Convert mixed AudioBuffer to MP3 Blob (WhatsApp compatible)
+ */
+export async function audioBufferToMp3(buffer: AudioBuffer): Promise<Blob> {
+  const data = buffer.getChannelData(0);
+  const sr = buffer.sampleRate;
+
+  // Convert float32 to int16
+  const pcm = new Int16Array(data.length);
+  for (let i = 0; i < data.length; i++) {
+    const s = Math.max(-1, Math.min(1, data[i]));
+    pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+
+  try {
+    // @ts-ignore
+    const lamejsModule = await import('lamejs/lame.all.js');
+    const lamejsFn = lamejsModule.default || lamejsModule;
+    if (typeof lamejsFn === 'function') lamejsFn();
+    const Mp3Encoder = lamejsFn.Mp3Encoder;
+    if (!Mp3Encoder) throw new Error('Mp3Encoder not found');
+
+    const mp3encoder = new Mp3Encoder(1, sr, 128);
+    const mp3Data: Uint8Array[] = [];
+    const blockSize = 1152;
+
+    for (let i = 0; i < pcm.length; i += blockSize) {
+      const chunk = pcm.subarray(i, i + blockSize);
+      const buf = mp3encoder.encodeBuffer(chunk);
+      if (buf.length > 0) mp3Data.push(buf);
+    }
+    const flush = mp3encoder.flush();
+    if (flush.length > 0) mp3Data.push(flush);
+
+    return new Blob(mp3Data as BlobPart[], { type: 'audio/mp3' });
+  } catch (e) {
+    console.warn('MP3 encoding failed, falling back to WAV:', e);
+    return audioBufferToWav(buffer);
+  }
+}
