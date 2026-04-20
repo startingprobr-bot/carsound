@@ -9,7 +9,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast, Toaster } from 'sonner';
 import { base64ToPcm, pcmToMp3, pcmToWav } from '@/lib/audio-converter';
-import { SOUND_EFFECTS, playEffect } from '@/lib/sound-effects';
+import { SOUND_EFFECTS, playEffect, loadEffectBuffer } from '@/lib/sound-effects';
 import { type TimelineItem, mixAudio, audioBufferToWav } from '@/lib/audio-mixer';
 
 // --- Types ---
@@ -325,6 +325,27 @@ export default function SoundTruckTTS() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Delete key to remove selected effect
+  const selectedTrackRef = useRef(selectedTrack);
+  selectedTrackRef.current = selectedTrack;
+  useEffect(() => {
+    const handleDeleteKey = (e: KeyboardEvent) => {
+      if (e.code !== 'Delete') return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      const st = selectedTrackRef.current;
+      if (st?.startsWith('effect:')) {
+        const effectId = st.replace('effect:', '');
+        setTimelineItems(prev => prev.filter(i => i.id !== effectId));
+        mixedBufferRef.current = null;
+        setSelectedTrack(null);
+        toast.success('Efeito removido');
+      }
+    };
+    window.addEventListener('keydown', handleDeleteKey);
+    return () => window.removeEventListener('keydown', handleDeleteKey);
+  }, []);
+
   const initAudioContext = () => {
     if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -460,11 +481,12 @@ export default function SoundTruckTTS() {
       setTtsTrimStart(0);
       setTtsTrimEnd(null);
       setTtsWaveform(extractPeaks(pcm, 120));
+      mixedBufferRef.current = null;
 
       // Play the audio
       await playPcm(pcm);
 
-      // Save to history
+      // Prepare conversion for potential save
       const mp3Blob = await pcmToMp3(pcm, 24000);
       const newConversion: Conversion = {
         id: Date.now().toString(),
@@ -477,11 +499,20 @@ export default function SoundTruckTTS() {
         base64: base64Audio,
       };
 
-      const updatedHistory = [newConversion, ...history];
-      setHistory(updatedHistory);
-      saveData('history', updatedHistory.map(({ blob, audioUrl, ...rest }) => rest));
-
-      toast.success('Áudio gerado com sucesso!');
+      toast.success('Áudio gerado! Deseja salvar no histórico?', {
+        duration: 20000,
+        action: {
+          label: 'Salvar no histórico',
+          onClick: () => {
+            setHistory(prev => {
+              const updated = [newConversion, ...prev];
+              saveData('history', updated.map(({ blob, audioUrl, ...rest }) => rest));
+              return updated;
+            });
+            toast.success('Salvo no histórico!');
+          },
+        },
+      });
       // Auto-collapse sidebar sections
       setSectionOpen({ text: false, voice: false, entonation: false });
     } catch (error) {
@@ -689,11 +720,27 @@ export default function SoundTruckTTS() {
   const [tlTime, setTlTime] = useState('0');
   const [tlVolume, setTlVolume] = useState(0.8);
 
-  const addTimelineEffect = () => {
+  const addTimelineEffect = async () => {
     const builtIn = SOUND_EFFECTS.find(e => e.id === tlEffectId);
     const custom = customEffects.find(e => e.id === tlEffectId);
     const effect = builtIn || custom;
     if (!effect) return;
+
+    // Get actual duration of the effect audio
+    const ctx = initAudioContext();
+    let duration = 2; // fallback
+    if (builtIn) {
+      const buffer = await loadEffectBuffer(ctx, tlEffectId);
+      if (buffer) duration = buffer.duration;
+    } else if (custom?.url) {
+      try {
+        const resp = await fetch(custom.url);
+        const buf = await resp.arrayBuffer();
+        const audioBuffer = await ctx.decodeAudioData(buf);
+        duration = audioBuffer.duration;
+      } catch {}
+    }
+
     const item: TimelineItem = {
       id: Date.now().toString(),
       type: 'effect',
@@ -701,6 +748,7 @@ export default function SoundTruckTTS() {
       name: effect.name,
       startTime: parseFloat(tlTime) || 0,
       volume: tlVolume,
+      duration,
     };
     setTimelineItems(prev => [...prev, item].sort((a, b) => a.startTime - b.startTime));
     mixedBufferRef.current = null;
@@ -735,7 +783,10 @@ export default function SoundTruckTTS() {
     bgMusicEnd,
     bgMusicStartTime + 5,
     mixRealDuration,
-    ...timelineItems.map(i => i.startTime + 2),
+    ...timelineItems.map(i => {
+      const effectDur = (i.trimEnd ?? i.duration ?? 2) - (i.trimStart ?? 0);
+      return i.startTime + effectDur;
+    }),
     1
   );
 
@@ -973,23 +1024,23 @@ export default function SoundTruckTTS() {
 
   // Compute effect layers for overlapping effects
   const computeEffectLayers = (): Map<string, number> => {
-    const EFFECT_DURATION = 2;
     const sorted = [...timelineItems].sort((a, b) => a.startTime - b.startTime);
     const layers = new Map<string, number>();
     const layerEnds: number[] = [];
     for (const item of sorted) {
+      const effectDur = (item.trimEnd ?? item.duration ?? 2) - (item.trimStart ?? 0);
       let assigned = false;
       for (let l = 0; l < layerEnds.length; l++) {
         if (item.startTime >= layerEnds[l]) {
           layers.set(item.id, l);
-          layerEnds[l] = item.startTime + EFFECT_DURATION;
+          layerEnds[l] = item.startTime + effectDur;
           assigned = true;
           break;
         }
       }
       if (!assigned) {
         layers.set(item.id, layerEnds.length);
-        layerEnds.push(item.startTime + EFFECT_DURATION);
+        layerEnds.push(item.startTime + effectDur);
       }
     }
     return layers;
@@ -998,11 +1049,12 @@ export default function SoundTruckTTS() {
   const effectLayers = computeEffectLayers();
   const numEffectLayers = Math.max(1, ...Array.from(effectLayers.values()).map(l => l + 1));
 
-  const updateTimelineItem = (id: string, field: 'startTime' | 'volume', value: number) => {
+  const updateTimelineItem = (id: string, field: 'startTime' | 'volume' | 'trimStart' | 'trimEnd', value: number) => {
     setTimelineItems(prev =>
       prev.map(i => i.id === id ? { ...i, [field]: value } : i)
         .sort((a, b) => a.startTime - b.startTime)
     );
+    mixedBufferRef.current = null;
   };
 
   // ============================================================
@@ -1215,14 +1267,35 @@ export default function SoundTruckTTS() {
                     const builtInEff = SOUND_EFFECTS.find(e => e.id === item.sourceId);
                     const customEff = customEffects.find(e => e.id === item.sourceId);
                     const effName = builtInEff?.name ?? customEff?.name ?? item.name;
+                    const effFullDur = item.duration ?? 2;
+                    const effTrimStart = item.trimStart ?? 0;
+                    const effTrimEnd = item.trimEnd ?? effFullDur;
+                    const effVisualDur = effTrimEnd - effTrimStart;
                     return (
                       <div className="space-y-3">
-                        <div className="text-[10px] text-white/50 font-medium">{effName}</div>
+                        <div className="flex items-center justify-between">
+                          <div className="text-[10px] text-white/50 font-medium">{effName}</div>
+                          <span className="text-[9px] text-green-400/60 font-mono">{effVisualDur.toFixed(1)}s / {effFullDur.toFixed(1)}s</span>
+                        </div>
                         <div>
                           <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold block mb-1">Posição (s)</label>
                           <input type="number" min="0" step="0.5" value={item.startTime}
                             onChange={(e) => { updateTimelineItem(item.id, 'startTime', parseFloat(e.target.value) || 0); }}
                             className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-green-500/40 interactive" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold block mb-1">Trim Início (s)</label>
+                            <input type="number" min="0" max={effTrimEnd - 0.1} step="0.1" value={effTrimStart}
+                              onChange={(e) => { updateTimelineItem(item.id, 'trimStart', Math.max(0, Math.min(parseFloat(e.target.value) || 0, effTrimEnd - 0.1))); }}
+                              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-green-500/40 interactive" />
+                          </div>
+                          <div>
+                            <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold block mb-1">Trim Fim (s)</label>
+                            <input type="number" min={effTrimStart + 0.1} max={effFullDur} step="0.1" value={effTrimEnd}
+                              onChange={(e) => { updateTimelineItem(item.id, 'trimEnd', Math.max(effTrimStart + 0.1, Math.min(parseFloat(e.target.value) || effFullDur, effFullDur))); }}
+                              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-green-500/40 interactive" />
+                          </div>
                         </div>
                         <div>
                           <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold flex justify-between mb-1">
@@ -1239,7 +1312,7 @@ export default function SoundTruckTTS() {
                           </button>
                           <button onClick={() => { removeTimelineItem(item.id); setSelectedTrack(null); }}
                             className="flex-1 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[10px] text-red-400/70 hover:bg-red-500/20 interactive">
-                            Remover
+                            Remover (Del)
                           </button>
                         </div>
                       </div>
@@ -1807,7 +1880,12 @@ export default function SoundTruckTTS() {
                           </span>
                         )}
                         {timelineItems.filter(item => (effectLayers.get(item.id) ?? 0) === layerIndex).map((item) => {
+                          const effectTrimStart = item.trimStart ?? 0;
+                          const effectFullDur = item.duration ?? 2;
+                          const effectTrimEnd = item.trimEnd ?? effectFullDur;
+                          const effectVisualDur = effectTrimEnd - effectTrimStart;
                           const leftPct = (item.startTime / totalTimelineDuration) * 100;
+                          const widthPct = (effectVisualDur / totalTimelineDuration) * 100;
                           const builtEff = SOUND_EFFECTS.find(e => e.id === item.sourceId);
                           const custEff = customEffects.find(e => e.id === item.sourceId);
                           const effName = builtEff?.name ?? custEff?.name ?? item.name;
@@ -1815,21 +1893,76 @@ export default function SoundTruckTTS() {
                           const isSelected = selectedTrack === `effect:${item.id}`;
                           return (
                             <div key={item.id}
-                              className={`absolute top-0 bottom-0 flex items-center touch-none ${isDragging ? 'z-20' : 'z-10'}`}
-                              style={{ left: `${Math.min(leftPct, 92)}%` }}
-                              onPointerDown={(e) => handleTimelineDragStart(e, item.id)}
-                              onClick={() => setSelectedTrack(isSelected ? null : `effect:${item.id}`)}
-                              title={`${effName} @ ${item.startTime}s (vol ${Math.round(item.volume * 100)}%) — clique para editar`}
-                            >
-                              <div className={`rounded-md px-2 py-1 flex items-center gap-1 cursor-grab active:cursor-grabbing interactive ${
+                              className={`absolute top-0 bottom-0 touch-none overflow-hidden rounded-lg ${isDragging ? 'z-20' : 'z-10'} ${
                                 isSelected
-                                  ? 'bg-green-500/30 border-2 border-green-400 shadow-lg shadow-green-500/20'
+                                  ? 'bg-green-500/25 border-2 border-green-400 shadow-lg shadow-green-500/20'
                                   : isDragging
-                                  ? 'bg-green-500/30 border-2 border-green-400 scale-110 shadow-lg shadow-green-500/20'
-                                  : 'bg-green-500/15 border border-green-500/30 hover:bg-green-500/25'
-                              }`}>
-                                <Volume2 className="w-3 h-3 text-green-300" />
-                                <span className="text-[9px] text-green-300/80 font-mono">{item.startTime.toFixed(1)}s</span>
+                                  ? 'bg-green-500/25 border-2 border-green-400 shadow-lg shadow-green-500/20'
+                                  : 'bg-green-500/15 border border-green-500/30 hover:bg-green-500/20'
+                              }`}
+                              style={{ left: `${leftPct}%`, width: `${Math.max(widthPct, 2)}%` }}
+                              onClick={() => setSelectedTrack(isSelected ? null : `effect:${item.id}`)}
+                              title={`${effName} @ ${item.startTime.toFixed(1)}s (${effectVisualDur.toFixed(1)}s, vol ${Math.round(item.volume * 100)}%) — clique para editar, Del para remover`}
+                            >
+                              {/* Left trim handle */}
+                              <div className="absolute left-0 top-0 bottom-0 w-2.5 cursor-col-resize z-20 flex items-center justify-center hover:bg-green-400/30 rounded-l"
+                                onPointerDown={(e) => {
+                                  e.preventDefault(); e.stopPropagation();
+                                  const bar = timelineBarRef.current; if (!bar) return;
+                                  const startX = e.clientX;
+                                  const origStart = item.startTime;
+                                  const origTrimStart = item.trimStart ?? 0;
+                                  const fullDur = item.duration ?? 2;
+                                  const onMove = (ev: PointerEvent) => {
+                                    const rect = bar.getBoundingClientRect();
+                                    const dx = ev.clientX - startX;
+                                    const dt = (dx / rect.width) * totalTimelineDuration;
+                                    const maxTrim = (item.trimEnd ?? fullDur) - 0.1;
+                                    const newTrimStart = Math.max(0, Math.min(origTrimStart + dt, maxTrim));
+                                    const newStart = Math.max(0, origStart + (newTrimStart - origTrimStart));
+                                    setTimelineItems(prev =>
+                                      prev.map(i => i.id === item.id ? { ...i, startTime: newStart, trimStart: newTrimStart } : i)
+                                        .sort((a, b) => a.startTime - b.startTime)
+                                    );
+                                    mixedBufferRef.current = null;
+                                  };
+                                  const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
+                                  window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+                                }}>
+                                <div className="w-0.5 h-4 bg-green-400/70 rounded" />
+                              </div>
+
+                              {/* Center drag area */}
+                              <div className="flex-1 flex items-center px-2 gap-1 cursor-grab active:cursor-grabbing min-w-0"
+                                onPointerDown={(e) => handleTimelineDragStart(e, item.id)}>
+                                <Volume2 className="w-3 h-3 text-green-300 shrink-0" />
+                                <span className="text-[9px] text-green-300/80 font-mono truncate">{effName}</span>
+                                <span className="text-[8px] text-green-300/50 font-mono ml-auto shrink-0">{effectVisualDur.toFixed(1)}s</span>
+                              </div>
+
+                              {/* Right trim handle */}
+                              <div className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize z-20 flex items-center justify-center hover:bg-green-400/30 rounded-r"
+                                onPointerDown={(e) => {
+                                  e.preventDefault(); e.stopPropagation();
+                                  const bar = timelineBarRef.current; if (!bar) return;
+                                  const startX = e.clientX;
+                                  const fullDur = item.duration ?? 2;
+                                  const origTrimEnd = item.trimEnd ?? fullDur;
+                                  const onMove = (ev: PointerEvent) => {
+                                    const rect = bar.getBoundingClientRect();
+                                    const dx = ev.clientX - startX;
+                                    const dt = (dx / rect.width) * totalTimelineDuration;
+                                    const newTrimEnd = Math.max((item.trimStart ?? 0) + 0.1, Math.min(origTrimEnd + dt, fullDur));
+                                    setTimelineItems(prev =>
+                                      prev.map(i => i.id === item.id ? { ...i, trimEnd: newTrimEnd } : i)
+                                        .sort((a, b) => a.startTime - b.startTime)
+                                    );
+                                    mixedBufferRef.current = null;
+                                  };
+                                  const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
+                                  window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+                                }}>
+                                <div className="w-0.5 h-4 bg-green-400/70 rounded" />
                               </div>
                             </div>
                           );
@@ -1889,6 +2022,7 @@ export default function SoundTruckTTS() {
                           <Volume2 className="w-3 h-3" />
                           <span className="font-medium">{effName}</span>
                           <span className="text-white/25 font-mono">{item.startTime.toFixed(1)}s</span>
+                          <span className="text-white/15 font-mono">{((item.trimEnd ?? item.duration ?? 2) - (item.trimStart ?? 0)).toFixed(1)}s</span>
                         </button>
                       );
                     })}

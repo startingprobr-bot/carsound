@@ -17,6 +17,12 @@ export interface TimelineItem {
   startTime: number;
   /** Volume 0-1 */
   volume: number;
+  /** Actual audio duration in seconds */
+  duration?: number;
+  /** Trim start offset in seconds within the effect */
+  trimStart?: number;
+  /** Trim end in seconds within the effect */
+  trimEnd?: number;
 }
 
 /**
@@ -45,7 +51,9 @@ export async function mixAudio(
   // Find the longest timeline item to determine total duration
   let maxDuration = ttsStartTime + ttsDuration;
   for (const item of timelineItems) {
-    const itemEnd = item.startTime + 3;
+    const effTrimStart = item.trimStart ?? 0;
+    const effTrimEnd = item.trimEnd ?? (item.duration ?? 3);
+    const itemEnd = item.startTime + (effTrimEnd - effTrimStart);
     if (itemEnd > maxDuration) maxDuration = itemEnd;
   }
   if (bgMusicUrl) {
@@ -123,7 +131,13 @@ export async function mixAudio(
           gain.gain.value = item.volume;
           source.connect(gain);
           gain.connect(offlineCtx.destination);
-          source.start(item.startTime);
+          const effOffset = item.trimStart ?? 0;
+          const effPlayDuration = item.trimEnd != null ? item.trimEnd - effOffset : undefined;
+          if (effPlayDuration != null) {
+            source.start(item.startTime, effOffset, effPlayDuration);
+          } else {
+            source.start(item.startTime, effOffset);
+          }
         }
       } catch (e) {
         console.warn(`Failed to load effect ${item.sourceId}:`, e);
