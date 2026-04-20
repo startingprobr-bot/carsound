@@ -755,6 +755,40 @@ export default function SoundTruckTTS() {
     setShowAddTimeline(false);
   };
 
+  const addEffectAtPlayhead = async (effectId: string) => {
+    const builtIn = SOUND_EFFECTS.find(e => e.id === effectId);
+    const custom = customEffects.find(e => e.id === effectId);
+    const effect = builtIn || custom;
+    if (!effect) return;
+
+    const ctx = initAudioContext();
+    let duration = 2;
+    if (builtIn) {
+      const buffer = await loadEffectBuffer(ctx, effectId);
+      if (buffer) duration = buffer.duration;
+    } else if (custom?.url) {
+      try {
+        const resp = await fetch(custom.url);
+        const buf = await resp.arrayBuffer();
+        const audioBuffer = await ctx.decodeAudioData(buf);
+        duration = audioBuffer.duration;
+      } catch {}
+    }
+
+    const item: TimelineItem = {
+      id: Date.now().toString(),
+      type: 'effect',
+      sourceId: effectId,
+      name: effect.name,
+      startTime: playheadRef.current,
+      volume: tlVolume,
+      duration,
+    };
+    setTimelineItems(prev => [...prev, item].sort((a, b) => a.startTime - b.startTime));
+    mixedBufferRef.current = null;
+    toast.success(`"${effect.name}" adicionado em ${playheadRef.current.toFixed(1)}s`);
+  };
+
   const removeTimelineItem = (id: string) => {
     setTimelineItems(prev => prev.filter(i => i.id !== id));
     mixedBufferRef.current = null;
@@ -2047,19 +2081,23 @@ export default function SoundTruckTTS() {
 
                     <div className="max-h-[200px] overflow-y-auto custom-scrollbar space-y-1">
                       {/* Built-in effects */}
-                      <p className="text-[9px] text-white/25 uppercase tracking-widest font-bold px-1 pt-1">Padrão</p>
+                      <p className="text-[9px] text-white/25 uppercase tracking-widest font-bold px-1 pt-1">Padrão <span className="text-white/15 normal-case">(2x clique = add na posição)</span></p>
                       {SOUND_EFFECTS.map(e => (
-                        <button key={e.id}
+                        <div key={e.id}
                           onClick={() => setTlEffectId(e.id)}
-                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left interactive border ${
+                          onDoubleClick={() => addEffectAtPlayhead(e.id)}
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left interactive border cursor-pointer ${
                             tlEffectId === e.id
                               ? 'bg-green-500/15 border-green-500/30 text-green-300'
                               : 'bg-white/[0.02] border-transparent text-white/50 hover:bg-white/[0.05] hover:text-white/70'
                           }`}
                         >
-                          <Volume2 className="w-3.5 h-3.5 flex-shrink-0" />
+                          <button onClick={(ev) => { ev.stopPropagation(); previewTimelineEffect(e.id); }}
+                            className="p-0.5 hover:text-green-400 interactive shrink-0" title="Ouvir">
+                            <Play className="w-3 h-3 fill-current" />
+                          </button>
                           <span className="text-xs">{e.name}</span>
-                        </button>
+                        </div>
                       ))}
 
                       {/* Custom effects */}
@@ -2067,16 +2105,20 @@ export default function SoundTruckTTS() {
                         <>
                           <p className="text-[9px] text-white/25 uppercase tracking-widest font-bold px-1 pt-2">Meus efeitos</p>
                           {customEffects.map(e => (
-                            <div key={e.id} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border ${
-                              tlEffectId === e.id
-                                ? 'bg-green-500/15 border-green-500/30 text-green-300'
-                                : 'bg-white/[0.02] border-transparent text-white/50 hover:bg-white/[0.05]'
-                            }`}>
-                              <button onClick={() => setTlEffectId(e.id)} className="flex items-center gap-2 flex-1 text-left interactive">
-                                <Upload className="w-3.5 h-3.5 flex-shrink-0" />
-                                <span className="text-xs">{e.name}</span>
+                            <div key={e.id}
+                              onClick={() => setTlEffectId(e.id)}
+                              onDoubleClick={() => addEffectAtPlayhead(e.id)}
+                              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer ${
+                                tlEffectId === e.id
+                                  ? 'bg-green-500/15 border-green-500/30 text-green-300'
+                                  : 'bg-white/[0.02] border-transparent text-white/50 hover:bg-white/[0.05]'
+                              }`}>
+                              <button onClick={(ev) => { ev.stopPropagation(); previewTimelineEffect(e.id); }}
+                                className="p-0.5 hover:text-green-400 interactive shrink-0" title="Ouvir">
+                                <Play className="w-3 h-3 fill-current" />
                               </button>
-                              <button onClick={() => deleteCustomEffect(e.id)} className="p-1 text-white/20 hover:text-red-400 interactive">
+                              <span className="text-xs flex-1">{e.name}</span>
+                              <button onClick={(ev) => { ev.stopPropagation(); deleteCustomEffect(e.id); }} className="p-1 text-white/20 hover:text-red-400 interactive">
                                 <Trash2 className="w-3 h-3" />
                               </button>
                             </div>
@@ -2104,10 +2146,6 @@ export default function SoundTruckTTS() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => previewTimelineEffect(tlEffectId)}
-                        className="p-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-white/40 text-xs flex items-center gap-1 interactive hover:text-green-400">
-                        <Headphones className="w-3.5 h-3.5" /> Ouvir
-                      </button>
                       <button onClick={addTimelineEffect}
                         className="flex-1 p-2.5 bg-gradient-to-r from-green-600 to-green-500 rounded-lg text-white text-xs font-bold interactive">
                         <Check className="w-4 h-4 inline mr-1" /> Adicionar
