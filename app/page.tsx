@@ -11,6 +11,7 @@ import { toast, Toaster } from 'sonner';
 import { base64ToPcm, pcmToMp3, pcmToWav } from '@/lib/audio-converter';
 import { SOUND_EFFECTS, playEffect, loadEffectBuffer } from '@/lib/sound-effects';
 import { type TimelineItem, mixAudio, audioBufferToWav, audioBufferToMp3 } from '@/lib/audio-mixer';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // --- Types ---
 interface Conversion {
@@ -84,6 +85,8 @@ const TTS_STYLES = [
 ];
 
 export default function SoundTruckTTS() {
+  const isMobile = useIsMobile();
+
   // --- Hydration guard ---
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -174,6 +177,7 @@ export default function SoundTruckTTS() {
   const [sectionOpen, setSectionOpen] = useState({ text: true, voice: true, entonation: true });
   const [likeCount, setLikeCount] = useState(0);
   const [hasLiked, setHasLiked] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState<'controls' | 'timeline'>('controls');
 
   // --- Tutorial ---
   const [tourStep, setTourStep] = useState(-1); // -1 = inactive
@@ -1186,14 +1190,14 @@ export default function SoundTruckTTS() {
       <Toaster position="top-right" theme="dark" richColors />
 
       {/* Header */}
-      <header className="glass-strong sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
+      <header className="glass-strong sticky top-0 z-50 px-3 md:px-6 py-3 md:py-4 flex justify-between items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
           <div className="bg-gradient-to-br from-green-500 to-green-700 p-2.5 rounded-xl shadow-lg shadow-green-900/30">
             <Volume2 className="w-5 h-5" />
           </div>
-          <div>
-            <h1 className="text-lg font-black tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">Carro de Som</h1>
-            <p className="text-[10px] text-white/30 uppercase tracking-[0.2em]">Sound Truck Engine v2.0</p>
+          <div className="min-w-0">
+            <h1 className="text-base md:text-lg font-black tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent truncate">Carro de Som</h1>
+            <p className="text-[9px] md:text-[10px] text-white/30 uppercase tracking-[0.2em]">Sound Truck Engine v2.0</p>
           </div>
           <button onClick={handleLike} className="flex items-center gap-1.5 p-1.5 rounded-lg hover:bg-white/[0.06] text-red-400 interactive animate-heartbeat" title="Apoie o projeto">
             <Heart className={`w-3.5 h-3.5 ${hasLiked ? 'fill-red-400' : ''}`} />
@@ -1230,10 +1234,27 @@ export default function SoundTruckTTS() {
         )}
       </header>
 
-      <main className="h-[calc(100vh-64px)] flex overflow-hidden">
+      {isMobile && (
+        <div className="sticky top-[62px] z-40 px-3 py-2 bg-black/55 backdrop-blur-md border-b border-white/[0.06] flex gap-2">
+          <button
+            onClick={() => setMobilePanel('controls')}
+            className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wide interactive ${mobilePanel === 'controls' ? 'bg-green-500/20 text-green-300 border border-green-500/40' : 'bg-white/[0.04] text-white/50 border border-white/[0.08]'}`}
+          >
+            Controles
+          </button>
+          <button
+            onClick={() => setMobilePanel('timeline')}
+            className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wide interactive ${mobilePanel === 'timeline' ? 'bg-green-500/20 text-green-300 border border-green-500/40' : 'bg-white/[0.04] text-white/50 border border-white/[0.08]'}`}
+          >
+            Timeline
+          </button>
+        </div>
+      )}
+
+      <main className="h-auto md:h-[calc(100vh-64px)] flex flex-col md:flex-row overflow-visible md:overflow-hidden pb-6 md:pb-0">
 
         {/* ======== LEFT SIDEBAR ======== */}
-        <aside className="w-80 min-w-[320px] flex flex-col border-r border-white/[0.06] bg-black/20 overflow-y-auto custom-scrollbar">
+        <aside className={`${isMobile ? (mobilePanel === 'controls' ? 'flex' : 'hidden') : 'flex'} w-full md:w-80 md:min-w-[320px] flex-col md:border-r border-white/[0.06] bg-black/20 overflow-y-visible md:overflow-y-auto custom-scrollbar`}>
 
           {/* === SELECTED TRACK PROPERTIES (top of sidebar) === */}
           <AnimatePresence>
@@ -1567,7 +1588,7 @@ export default function SoundTruckTTS() {
         </aside>
 
         {/* ======== RIGHT: TIMELINE (full width) ======== */}
-        <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar p-5">
+        <div className={`${isMobile ? (mobilePanel === 'timeline' ? 'flex' : 'hidden') : 'flex'} flex-1 flex-col overflow-y-visible md:overflow-y-auto custom-scrollbar p-3 md:p-5`}>
           <section className="glass rounded-2xl p-6 glow-green flex-1 flex flex-col" data-tour="timeline">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -1597,7 +1618,8 @@ export default function SoundTruckTTS() {
             ) : (
               <>
                 {/* Visual Timeline Bar - Draggable */}
-                <div ref={timelineBarRef} className="relative bg-black/30 rounded-xl mb-4 border border-white/[0.06] p-3 select-none">
+                <div className="overflow-x-auto custom-scrollbar -mx-1 px-1">
+                <div ref={timelineBarRef} className="relative bg-black/30 rounded-xl mb-4 border border-white/[0.06] p-3 select-none min-w-[760px] md:min-w-0">
                   {/* Time ruler - click to seek */}
                   <div className="flex justify-between text-[9px] text-white/25 mb-2 px-1 font-mono cursor-pointer hover:text-white/40 interactive"
                     onClick={(e) => {
@@ -1618,7 +1640,7 @@ export default function SoundTruckTTS() {
                   </div>
 
                   {/* TTS track - draggable with trim handles */}
-                  <div className="relative h-10 mb-1">
+                  <div className="relative h-12 md:h-10 mb-1">
                     <div className={`absolute inset-y-0 track-tts rounded-lg flex items-center gap-0 touch-none overflow-hidden ${selectedTrack === 'tts' ? 'border-2 border-green-400 shadow-lg shadow-green-500/20' : 'border border-green-500/25'}`}
                       style={{ left: `${(ttsStartTime / totalTimelineDuration) * 100}%`, width: `${(ttsDuration / totalTimelineDuration) * 100}%` }}
                       onClick={() => setSelectedTrack(selectedTrack === 'tts' ? null : 'tts')}>
@@ -1696,7 +1718,7 @@ export default function SoundTruckTTS() {
                   </div>
 
                   {/* Background music track - integrated controls */}
-                  <div className="relative h-10 mb-1">
+                  <div className="relative h-12 md:h-10 mb-1">
                     {selectedMusic ? (
                       <div className={`absolute inset-y-0 track-music rounded-lg flex items-center gap-0 group/music touch-none overflow-hidden ${selectedTrack === 'music' ? 'border-2 border-blue-400 shadow-lg shadow-blue-500/20' : 'border border-blue-500/25'}`}
                         style={{
@@ -1795,7 +1817,7 @@ export default function SoundTruckTTS() {
 
                   {/* Effects tracks */}
                   {Array.from({ length: numEffectLayers }, (_, layerIndex) => (
-                    <div key={layerIndex} className="relative h-10 mt-1">
+                    <div key={layerIndex} className="relative h-12 md:h-10 mt-1">
                       <div className="absolute inset-y-0 left-0 w-full track-effect rounded-lg border border-green-500/15">
                         {layerIndex === 0 && timelineItems.length === 0 && (
                           <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white/15">
@@ -1927,6 +1949,7 @@ export default function SoundTruckTTS() {
                       )}
                     </div>
                   )}
+                </div>
                 </div>
 
                 {/* Timeline Items List — compact, click to select */}
