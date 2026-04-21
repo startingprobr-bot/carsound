@@ -23,14 +23,9 @@ export default function AdminPage() {
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [authHeader, setAuthHeader] = useState<string | null>(null);
-  const [sessionPassword, setSessionPassword] = useState('');
   const [logs, setLogs] = useState<AdminLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [passwordMsg, setPasswordMsg] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const totalWithMap = useMemo(() => logs.filter((l) => !!l.mapLink).length, [logs]);
 
@@ -51,44 +46,11 @@ export default function AdminPage() {
       const data = await res.json();
       setLogs(Array.isArray(data.logs) ? data.logs : []);
       setAuthHeader(header);
-      setSessionPassword(password);
     } catch {
       setError('Erro ao conectar');
       setAuthHeader(null);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const changePassword = async () => {
-    if (!authHeader) return;
-    setPasswordMsg('');
-    setIsChangingPassword(true);
-    try {
-      const res = await fetch('/api/admin/change-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: authHeader,
-        },
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setPasswordMsg(data.error || 'Falha ao trocar senha');
-        return;
-      }
-
-      const newHeader = toBasicAuth(username, newPassword);
-      setAuthHeader(newHeader);
-      setSessionPassword(newPassword);
-      setCurrentPassword('');
-      setNewPassword('');
-      setPasswordMsg('Senha alterada com sucesso.');
-    } catch {
-      setPasswordMsg('Erro ao trocar senha.');
-    } finally {
-      setIsChangingPassword(false);
     }
   };
 
@@ -165,7 +127,6 @@ export default function AdminPage() {
                   setAuthHeader(null);
                   setLogs([]);
                   setPassword('');
-                  setSessionPassword('');
                 }}
                 className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-bold"
               >
@@ -176,35 +137,6 @@ export default function AdminPage() {
             </div>
 
             {error && <p className="text-red-400 text-sm mb-2">{error}</p>}
-
-            <div className="mb-4 bg-white/[0.03] border border-white/10 rounded-xl p-4">
-              <h2 className="text-sm font-bold text-white mb-3">Trocar senha</h2>
-              <div className="grid md:grid-cols-3 gap-2">
-                <input
-                  type="password"
-                  placeholder="Senha atual"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:border-green-500/50"
-                />
-                <input
-                  type="password"
-                  placeholder="Nova senha"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:border-green-500/50"
-                />
-                <button
-                  onClick={changePassword}
-                  disabled={isChangingPassword || !currentPassword || !newPassword}
-                  className="rounded-lg bg-green-600 hover:bg-green-500 disabled:opacity-40 px-4 py-2 text-sm font-bold"
-                >
-                  {isChangingPassword ? 'Salvando...' : 'Salvar nova senha'}
-                </button>
-              </div>
-              <p className="text-xs text-white/50 mt-2">Usuario atual: {username} {sessionPassword ? '· sessao autenticada' : ''}</p>
-              {passwordMsg && <p className={`text-sm mt-2 ${passwordMsg.includes('sucesso') ? 'text-green-400' : 'text-red-400'}`}>{passwordMsg}</p>}
-            </div>
 
             <div className="overflow-auto border border-white/10 rounded-xl">
               <table className="w-full min-w-[900px] text-sm">
