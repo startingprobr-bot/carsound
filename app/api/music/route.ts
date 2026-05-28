@@ -68,9 +68,10 @@ export async function POST(request: NextRequest) {
       name: safeName,
       url: `/api/music/${encodeURIComponent(safeName)}`,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Music upload error:', error);
-    return NextResponse.json({ error: 'Erro ao salvar música' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Falha desconhecida';
+    return NextResponse.json({ error: `Erro ao salvar música: ${message}` }, { status: 500 });
   }
 }
 

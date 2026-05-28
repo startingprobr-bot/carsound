@@ -42,6 +42,17 @@ export async function mixAudio(
   bgMusicTrimStart: number = 0,
   ttsTrimStart: number = 0,
   ttsTrimEnd: number | null = null,
+  bgMusicFadeIn: number = 0,
+  bgMusicFadeOut: number = 0,
+  additionalBgTracks: Array<{
+    url: string;
+    startTime: number;
+    endTime: number | null;
+    trimStart: number;
+    volume: number;
+    fadeIn: number;
+    fadeOut: number;
+  }> = [],
 ): Promise<AudioBuffer> {
   // Calculate TTS duration accounting for speed and trim
   const ttsFullDuration = ttsPcm.length / ttsSampleRate / ttsSpeed;
@@ -59,6 +70,10 @@ export async function mixAudio(
   if (bgMusicUrl) {
     const musicEnd = bgMusicEndTime ?? (bgMusicStartTime + maxDuration);
     if (musicEnd > maxDuration) maxDuration = musicEnd;
+  }
+  for (const track of additionalBgTracks) {
+    const trackEnd = track.endTime ?? (track.startTime + 30);
+    if (trackEnd > maxDuration) maxDuration = trackEnd;
   }
 
   // Add padding
@@ -95,7 +110,21 @@ export async function mixAudio(
       musicSource.loop = true;
 
       const gainNode = offlineCtx.createGain();
-      gainNode.gain.value = bgMusicVolume; // Can be > 1.0 for boost
+      const clipEnd = bgMusicEndTime ?? (totalDuration - 0.05);
+      const clipDuration = Math.max(0.05, clipEnd - bgMusicStartTime);
+      const fadeInDur = Math.min(Math.max(0, bgMusicFadeIn), clipDuration);
+      const fadeOutDur = Math.min(Math.max(0, bgMusicFadeOut), Math.max(0, clipDuration - fadeInDur));
+      if (fadeInDur > 0) {
+        gainNode.gain.setValueAtTime(0, bgMusicStartTime);
+        gainNode.gain.linearRampToValueAtTime(bgMusicVolume, bgMusicStartTime + fadeInDur);
+      } else {
+        gainNode.gain.setValueAtTime(bgMusicVolume, bgMusicStartTime);
+      }
+      if (fadeOutDur > 0 && clipEnd > bgMusicStartTime) {
+        const fadeOutStart = Math.max(bgMusicStartTime + fadeInDur, clipEnd - fadeOutDur);
+        gainNode.gain.setValueAtTime(bgMusicVolume, fadeOutStart);
+        gainNode.gain.linearRampToValueAtTime(0.0001, clipEnd);
+      }
       musicSource.connect(gainNode);
       gainNode.connect(offlineCtx.destination);
       // Start at bgMusicStartTime on timeline, offset bgMusicTrimStart into the file
@@ -106,6 +135,44 @@ export async function mixAudio(
       }
     } catch (e) {
       console.warn('Failed to add background music:', e);
+    }
+  }
+
+  // 2.1. Add extra background music tracks
+  for (const track of additionalBgTracks) {
+    try {
+      const response = await fetch(track.url);
+      const arrayBuffer = await response.arrayBuffer();
+      const musicBuffer = await offlineCtx.decodeAudioData(arrayBuffer);
+      const musicSource = offlineCtx.createBufferSource();
+      musicSource.buffer = musicBuffer;
+      musicSource.loop = true;
+
+      const gainNode = offlineCtx.createGain();
+      const clipEnd = track.endTime ?? (totalDuration - 0.05);
+      const clipDuration = Math.max(0.05, clipEnd - track.startTime);
+      const fadeInDur = Math.min(Math.max(0, track.fadeIn), clipDuration);
+      const fadeOutDur = Math.min(Math.max(0, track.fadeOut), Math.max(0, clipDuration - fadeInDur));
+      if (fadeInDur > 0) {
+        gainNode.gain.setValueAtTime(0, track.startTime);
+        gainNode.gain.linearRampToValueAtTime(track.volume, track.startTime + fadeInDur);
+      } else {
+        gainNode.gain.setValueAtTime(track.volume, track.startTime);
+      }
+      if (fadeOutDur > 0 && clipEnd > track.startTime) {
+        const fadeOutStart = Math.max(track.startTime + fadeInDur, clipEnd - fadeOutDur);
+        gainNode.gain.setValueAtTime(track.volume, fadeOutStart);
+        gainNode.gain.linearRampToValueAtTime(0.0001, clipEnd);
+      }
+      musicSource.connect(gainNode);
+      gainNode.connect(offlineCtx.destination);
+
+      musicSource.start(track.startTime, track.trimStart);
+      if (track.endTime !== null && track.endTime > track.startTime) {
+        musicSource.stop(track.endTime);
+      }
+    } catch (e) {
+      console.warn('Failed to add extra background music:', e);
     }
   }
 
