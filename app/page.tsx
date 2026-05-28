@@ -821,6 +821,69 @@ export default function SoundTruckTTS() {
     toast.error('Selecione uma música ou efeito para cortar');
   };
 
+  const duplicateSelectedTrack = () => {
+    if (!selectedTrack) return;
+
+    if (selectedTrack === 'music' && selectedMusic) {
+      const mainEnd = bgMusicEndTime ?? (bgMusicStartTime + 30);
+      const segmentDuration = Math.max(0.5, mainEnd - bgMusicStartTime);
+      const duplicate: ExtraMusicTrack = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name: `${getMusicNameFromUrl(selectedMusic)} (cópia)`,
+        url: selectedMusic,
+        startTime: mainEnd,
+        trimStart: bgMusicTrimStart,
+        endTime: mainEnd + segmentDuration,
+        volume: bgMusicVolume,
+        fadeIn: bgMusicFadeIn,
+        fadeOut: bgMusicFadeOut,
+      };
+      setExtraMusicTracks(prev => [...prev, duplicate].sort((a, b) => a.startTime - b.startTime));
+      mixedBufferRef.current = null;
+      toast.success('Elemento duplicado');
+      return;
+    }
+
+    if (selectedTrack.startsWith('music:')) {
+      const trackId = selectedTrack.replace('music:', '');
+      const track = extraMusicTracks.find(t => t.id === trackId);
+      if (!track) return;
+      const trackEnd = track.endTime ?? (track.startTime + 30);
+      const segmentDuration = Math.max(0.5, trackEnd - track.startTime);
+      const duplicate: ExtraMusicTrack = {
+        ...track,
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name: `${track.name} (cópia)`,
+        startTime: trackEnd,
+        endTime: trackEnd + segmentDuration,
+      };
+      setExtraMusicTracks(prev => [...prev, duplicate].sort((a, b) => a.startTime - b.startTime));
+      mixedBufferRef.current = null;
+      toast.success('Elemento duplicado');
+      return;
+    }
+
+    if (selectedTrack.startsWith('effect:')) {
+      const effectId = selectedTrack.replace('effect:', '');
+      const item = timelineItems.find(i => i.id === effectId);
+      if (!item) return;
+      const trimStart = item.trimStart ?? 0;
+      const trimEnd = item.trimEnd ?? (item.duration ?? 2);
+      const visualDuration = Math.max(0.1, trimEnd - trimStart);
+      const duplicate: TimelineItem = {
+        ...item,
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        startTime: item.startTime + visualDuration,
+      };
+      setTimelineItems(prev => [...prev, duplicate].sort((a, b) => a.startTime - b.startTime));
+      mixedBufferRef.current = null;
+      toast.success('Elemento duplicado');
+      return;
+    }
+
+    toast.error('Selecione música ou efeito para duplicar');
+  };
+
   // ============================================================
   // CUSTOM EFFECTS
   // ============================================================
@@ -2446,6 +2509,18 @@ export default function SoundTruckTTS() {
                 </div>
                 </div>
 
+                {(selectedTrack === 'music' || selectedTrack?.startsWith('music:') || selectedTrack?.startsWith('effect:')) && (
+                  <div className="mb-3 flex items-center justify-end">
+                    <button
+                      onClick={duplicateSelectedTrack}
+                      className="px-3 py-1.5 rounded-lg border border-white/[0.12] bg-white/[0.03] text-[10px] font-semibold uppercase tracking-[0.08em] text-white/70 hover:bg-white/[0.07] hover:text-white interactive"
+                      title="Duplicar elemento selecionado"
+                    >
+                      Duplicar
+                    </button>
+                  </div>
+                )}
+
                 {/* Timeline Items List — compact, click to select */}
                 {timelineItems.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-4">
@@ -2487,11 +2562,17 @@ export default function SoundTruckTTS() {
 
                     <div className="max-h-[200px] overflow-y-auto custom-scrollbar space-y-1">
                       {/* Built-in effects */}
-                      <p className="text-[9px] text-white/25 uppercase tracking-widest font-bold px-1 pt-1">Padrão <span className="text-white/15 normal-case">(2x clique = add na posição)</span></p>
+                      <p className="text-[9px] text-white/25 uppercase tracking-widest font-bold px-1 pt-1">Padrão <span className="text-white/15 normal-case">({isMobile ? 'toque = add na posição' : '2x clique = add na posição'})</span></p>
                       {SOUND_EFFECTS.map(e => (
                         <div key={e.id}
-                          onClick={() => setTlEffectId(e.id)}
-                          onDoubleClick={() => addEffectAtPlayhead(e.id)}
+                          onClick={() => {
+                            if (isMobile) {
+                              addEffectAtPlayhead(e.id);
+                            } else {
+                              setTlEffectId(e.id);
+                            }
+                          }}
+                          onDoubleClick={() => !isMobile && addEffectAtPlayhead(e.id)}
                           className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left interactive border cursor-pointer ${
                             tlEffectId === e.id
                               ? 'bg-green-500/15 border-green-500/30 text-green-300'
@@ -2512,8 +2593,14 @@ export default function SoundTruckTTS() {
                           <p className="text-[9px] text-white/25 uppercase tracking-widest font-bold px-1 pt-2">Meus efeitos</p>
                           {customEffects.map(e => (
                             <div key={e.id}
-                              onClick={() => setTlEffectId(e.id)}
-                              onDoubleClick={() => addEffectAtPlayhead(e.id)}
+                              onClick={() => {
+                                if (isMobile) {
+                                  addEffectAtPlayhead(e.id);
+                                } else {
+                                  setTlEffectId(e.id);
+                                }
+                              }}
+                              onDoubleClick={() => !isMobile && addEffectAtPlayhead(e.id)}
                               className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer ${
                                 tlEffectId === e.id
                                   ? 'bg-green-500/15 border-green-500/30 text-green-300'
@@ -2532,30 +2619,10 @@ export default function SoundTruckTTS() {
                         </>
                       )}
                     </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[10px] text-white/40 uppercase tracking-[0.15em] font-bold">
-                          Segundo (0 - {totalTimelineDuration.toFixed(0)}s)
-                        </label>
-                        <input type="number" min="0" max={totalTimelineDuration + 10} step="0.5" value={tlTime}
-                          onChange={(e) => setTlTime(e.target.value)}
-                          className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/80 mt-1 focus:outline-none focus:border-green-500/40 interactive" />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-white/40 uppercase tracking-[0.15em] font-bold flex justify-between">
-                          Volume <span className="text-white/50">{Math.round(tlVolume * 100)}%</span>
-                        </label>
-                        <input type="range" min="0" max="3" step="0.05" value={tlVolume}
-                          onChange={(e) => setTlVolume(parseFloat(e.target.value))}
-                          className="w-full accent-green-500 mt-3" />
-                      </div>
-                    </div>
                     <div className="flex gap-2">
-                      <button onClick={addTimelineEffect}
-                        className="flex-1 p-2.5 bg-gradient-to-r from-green-600 to-green-500 rounded-lg text-white text-xs font-bold interactive">
-                        <Check className="w-4 h-4 inline mr-1" /> Adicionar
-                      </button>
+                      <div className="flex-1 p-2.5 bg-white/[0.02] border border-white/[0.08] rounded-lg text-white/45 text-xs text-center">
+                        {isMobile ? 'Toque em um efeito para adicionar no playhead' : 'Dê 2 cliques em um efeito para adicionar no playhead'}
+                      </div>
                       <button onClick={() => setShowAddTimeline(false)}
                         className="p-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-white/40 interactive"><X className="w-4 h-4" /></button>
                     </div>
