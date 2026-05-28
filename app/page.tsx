@@ -11,6 +11,7 @@ import { toast, Toaster } from 'sonner';
 import { base64ToPcm, pcmToMp3, pcmToWav } from '@/lib/audio-converter';
 import { SOUND_EFFECTS, playEffect, loadEffectBuffer } from '@/lib/sound-effects';
 import { type TimelineItem, mixAudio, audioBufferToWav, audioBufferToMp3 } from '@/lib/audio-mixer';
+import { timeStretchPcmPreservePitch } from '@/lib/audio-time-stretch';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 // --- Types ---
@@ -108,6 +109,7 @@ export default function SoundTruckTTS() {
   const [text, setText] = useState('');
   const [voice, setVoice] = useState('Enceladus');
   const [speed, setSpeed] = useState(1.0);
+  const [preserveVoicePitch, setPreserveVoicePitch] = useState(true);
   const [isConverting, setIsConverting] = useState(false);
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [ttsStyle, setTtsStyle] = useState('entusiasmado');
@@ -210,6 +212,24 @@ export default function SoundTruckTTS() {
 
   // --- Real-time playback gain ---
   const mixGainRef = useRef<GainNode | null>(null);
+  const stretchedTtsCacheRef = useRef<{ source: Int16Array | null; speed: number; stretched: Int16Array | null }>({
+    source: null,
+    speed: 1,
+    stretched: null,
+  });
+
+  const getEffectiveTtsPcm = (sourcePcm: Int16Array, spd: number) => {
+    if (!preserveVoicePitch || Math.abs(spd - 1) < 0.001) {
+      return sourcePcm;
+    }
+    const cache = stretchedTtsCacheRef.current;
+    if (cache.source === sourcePcm && Math.abs(cache.speed - spd) < 0.001 && cache.stretched) {
+      return cache.stretched;
+    }
+    const stretched = timeStretchPcmPreservePitch(sourcePcm, spd);
+    stretchedTtsCacheRef.current = { source: sourcePcm, speed: spd, stretched };
+    return stretched;
+  };
 
   const extractPeaks = (data: Float32Array | Int16Array, numBars: number): number[] => {
     const peaks: number[] = [];
@@ -463,12 +483,13 @@ export default function SoundTruckTTS() {
   const playPcm = (pcm: Int16Array, spd: number = speed): Promise<void> => {
     return new Promise((resolve) => {
       const ctx = initAudioContext();
-      const buffer = ctx.createBuffer(1, pcm.length, 24000);
+      const effectivePcm = getEffectiveTtsPcm(pcm, spd);
+      const buffer = ctx.createBuffer(1, effectivePcm.length, 24000);
       const ch = buffer.getChannelData(0);
-      for (let i = 0; i < pcm.length; i++) ch[i] = pcm[i] / 32768.0;
+      for (let i = 0; i < effectivePcm.length; i++) ch[i] = effectivePcm[i] / 32768.0;
       const source = ctx.createBufferSource();
       source.buffer = buffer;
-      source.playbackRate.value = spd;
+      source.playbackRate.value = preserveVoicePitch ? 1 : spd;
       source.connect(ctx.destination);
       source.onended = () => resolve();
       currentSourceRef.current = source;
@@ -1040,11 +1061,13 @@ export default function SoundTruckTTS() {
     setIsMixing(true);
     try {
       const ctx = initAudioContext();
+      const ttsPcmForMix = getEffectiveTtsPcm(lastGeneratedPcm, speed);
+      const ttsSpeedForMix = preserveVoicePitch ? 1 : speed;
       const mixed = await mixAudio(
         ctx,
-        lastGeneratedPcm,
+        ttsPcmForMix,
         24000,
-        speed,
+        ttsSpeedForMix,
         timelineItems,
         selectedMusic,
         bgMusicVolume,
@@ -1090,11 +1113,13 @@ export default function SoundTruckTTS() {
     setIsMixing(true);
     try {
       const ctx = initAudioContext();
+      const ttsPcmForMix = getEffectiveTtsPcm(lastGeneratedPcm, speed);
+      const ttsSpeedForMix = preserveVoicePitch ? 1 : speed;
       const mixed = await mixAudio(
         ctx,
-        lastGeneratedPcm,
+        ttsPcmForMix,
         24000,
-        speed,
+        ttsSpeedForMix,
         timelineItems,
         selectedMusic,
         bgMusicVolume,
@@ -1147,11 +1172,13 @@ export default function SoundTruckTTS() {
     if (!mixed || playheadRef.current === 0) {
       setIsMixing(true);
       try {
+        const ttsPcmForMix = getEffectiveTtsPcm(lastGeneratedPcm, speed);
+        const ttsSpeedForMix = preserveVoicePitch ? 1 : speed;
         mixed = await mixAudio(
           ctx,
-          lastGeneratedPcm,
+          ttsPcmForMix,
           24000,
-          speed,
+          ttsSpeedForMix,
           timelineItems,
           selectedMusic,
           bgMusicVolume,
@@ -1902,6 +1929,15 @@ export default function SoundTruckTTS() {
             <input type="range" min="0.5" max="2.0" step="0.1" value={speed}
               onChange={(e) => setSpeed(parseFloat(e.target.value))}
               className="w-full accent-green-500" />
+            <label className="mt-3 flex items-center justify-between text-[10px] text-white/50 cursor-pointer">
+              <span>Manter tom da voz</span>
+              <input
+                type="checkbox"
+                checked={preserveVoicePitch}
+                onChange={(e) => { setPreserveVoicePitch(e.target.checked); mixedBufferRef.current = null; }}
+                className="accent-green-500"
+              />
+            </label>
             <div className="flex justify-between text-[9px] text-white/20 mt-1">
               <span>Lento</span><span>Rápido</span>
             </div>
