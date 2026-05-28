@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 
-const MUSIC_DIR = path.join(process.cwd(), 'dados', 'musicas');
+const EFFECTS_DIR = path.join(process.cwd(), 'dados', 'effects');
 
 export async function GET(
   request: NextRequest,
@@ -10,10 +10,10 @@ export async function GET(
 ) {
   const { filename } = await params;
   const safeName = path.basename(decodeURIComponent(filename));
-  const filePath = path.join(MUSIC_DIR, safeName);
+  const filePath = path.join(EFFECTS_DIR, safeName);
 
-  if (!filePath.startsWith(MUSIC_DIR)) {
-    return NextResponse.json({ error: 'Não permitido' }, { status: 403 });
+  if (!filePath.startsWith(EFFECTS_DIR)) {
+    return NextResponse.json({ error: 'Nao permitido' }, { status: 403 });
   }
 
   try {
@@ -39,6 +39,6 @@ export async function GET(
       },
     });
   } catch {
-    return NextResponse.json({ error: 'Arquivo não encontrado' }, { status: 404 });
+    return NextResponse.json({ error: 'Arquivo nao encontrado' }, { status: 404 });
   }
 }

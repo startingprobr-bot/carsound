@@ -48,6 +48,7 @@ interface CustomEffect {
   id: string;
   name: string;
   url: string;
+  filename: string;
 }
 
 const VOICES: { name: string; label: string; gender: 'M' | 'F'; desc?: string }[] = [
@@ -609,24 +610,31 @@ export default function SoundTruckTTS() {
   // ============================================================
   // CUSTOM EFFECTS
   // ============================================================
-  const loadCustomEffects = () => {
+  const loadCustomEffects = async () => {
     try {
-      const saved = localStorage.getItem('customEffects');
-      if (saved) setCustomEffects(JSON.parse(saved));
-    } catch { }
+      const res = await fetch('/api/effects');
+      const data = await res.json();
+      setCustomEffects(Array.isArray(data) ? data : []);
+    } catch {
+      setCustomEffects([]);
+    }
   };
 
   const uploadCustomEffect = async (file: File) => {
     setIsUploadingEffect(true);
     try {
-      const url = URL.createObjectURL(file);
-      const name = file.name.replace(/\.[^/.]+$/, '');
-      const newEffect: CustomEffect = { id: `custom_${Date.now()}`, name, url };
-      const updated = [...customEffects, newEffect];
-      setCustomEffects(updated);
-      localStorage.setItem('customEffects', JSON.stringify(updated.map(e => ({ ...e, url: '' }))));
-      // Store blob url in memory (will persist until page reload — for permanent, we'd need server storage)
-      toast.success(`Efeito "${name}" adicionado!`);
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/effects', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || 'Erro ao enviar efeito');
+        return;
+      }
+
+      await loadCustomEffects();
+      setTlEffectId(data.id);
+      toast.success(`Efeito "${data.name}" adicionado!`);
     } catch {
       toast.error('Erro ao carregar efeito');
     } finally {
@@ -635,10 +643,25 @@ export default function SoundTruckTTS() {
   };
 
   const deleteCustomEffect = (id: string) => {
-    const updated = customEffects.filter(e => e.id !== id);
-    setCustomEffects(updated);
-    localStorage.setItem('customEffects', JSON.stringify(updated.map(e => ({ ...e, url: '' }))));
-    toast.success('Efeito removido');
+    const effect = customEffects.find(e => e.id === id);
+    if (!effect) return;
+    fetch('/api/effects', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: effect.filename }),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Erro ao remover efeito');
+        }
+        await loadCustomEffects();
+        if (tlEffectId === id) {
+          setTlEffectId(SOUND_EFFECTS[0].id);
+        }
+        toast.success('Efeito removido');
+      })
+      .catch(() => toast.error('Erro ao remover efeito'));
   };
 
   // ============================================================

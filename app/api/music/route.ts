@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 
 const MUSIC_DIR = path.join(process.cwd(), 'dados', 'musicas');
+const ALLOWED_EXTENSIONS = /\.(mp3|wav|ogg|m4a|webm|aac|flac|opus)$/i;
 
 async function ensureDir() {
   try {
@@ -16,7 +17,7 @@ export async function GET() {
   try {
     const files = await fs.readdir(MUSIC_DIR);
     const musics = files
-      .filter(f => /\.(mp3|wav|ogg|m4a|webm)$/i.test(f))
+      .filter(f => ALLOWED_EXTENSIONS.test(f))
       .map(f => ({
         name: f,
         url: `/api/music/${encodeURIComponent(f)}`,
@@ -41,6 +42,10 @@ export async function POST(request: NextRequest) {
     const safeName = file.name.replace(/[^a-zA-Z0-9._\-\s]/g, '').replace(/\s+/g, '_');
     if (!safeName || safeName.length > 200) {
       return NextResponse.json({ error: 'Nome de arquivo inválido' }, { status: 400 });
+    }
+
+    if (!ALLOWED_EXTENSIONS.test(safeName)) {
+      return NextResponse.json({ error: 'Formato não suportado. Use MP3, WAV, OGG, M4A, WEBM, AAC, FLAC ou OPUS.' }, { status: 400 });
     }
 
     // Max 20MB
