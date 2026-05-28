@@ -762,6 +762,65 @@ export default function SoundTruckTTS() {
     toast.success(`Faixa extra cortada no playhead (${splitAt.toFixed(1)}s)`);
   };
 
+  const splitEffectAt = (effectId: string) => {
+    const splitAt = playheadRef.current;
+    let didSplit = false;
+
+    setTimelineItems(prev => {
+      const item = prev.find(i => i.id === effectId);
+      if (!item) return prev;
+
+      const trimStart = item.trimStart ?? 0;
+      const trimEnd = item.trimEnd ?? (item.duration ?? 2);
+      const visualDuration = trimEnd - trimStart;
+      const itemEnd = item.startTime + visualDuration;
+
+      if (splitAt <= item.startTime + 0.1 || splitAt >= itemEnd - 0.1) {
+        return prev;
+      }
+
+      const splitTrimPoint = trimStart + (splitAt - item.startTime);
+      const part2 = {
+        ...item,
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        startTime: splitAt,
+        trimStart: splitTrimPoint,
+        trimEnd,
+      };
+      didSplit = true;
+
+      return [
+        ...prev.map(i => i.id === effectId ? { ...i, trimEnd: splitTrimPoint } : i),
+        part2,
+      ].sort((a, b) => a.startTime - b.startTime);
+    });
+
+    if (!didSplit) {
+      toast.error('Posicione a barra amarela dentro do efeito para cortar');
+      return;
+    }
+
+    mixedBufferRef.current = null;
+    toast.success(`Efeito cortado no playhead (${splitAt.toFixed(1)}s)`);
+  };
+
+  const splitSelectedTrackAtPlayhead = () => {
+    if (!selectedTrack) return;
+    if (selectedTrack === 'music') {
+      splitMainMusicAt();
+      return;
+    }
+    if (selectedTrack.startsWith('music:')) {
+      splitExtraMusicAt(selectedTrack.replace('music:', ''));
+      return;
+    }
+    if (selectedTrack.startsWith('effect:')) {
+      splitEffectAt(selectedTrack.replace('effect:', ''));
+      return;
+    }
+    toast.error('Selecione uma música ou efeito para cortar');
+  };
+
   // ============================================================
   // CUSTOM EFFECTS
   // ============================================================
@@ -1485,12 +1544,20 @@ export default function SoundTruckTTS() {
                     <div className="flex items-center gap-2">
                       <Sliders className="w-4 h-4 text-green-400" />
                       <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/60">
-                        {selectedTrack === 'tts' ? 'Locução' : selectedTrack === 'music' ? 'Música de Fundo' : 'Efeito Sonoro'}
+                        {selectedTrack === 'tts' ? 'Locução' : selectedTrack?.startsWith('music') ? 'Música de Fundo' : 'Efeito Sonoro'}
                       </h2>
                     </div>
-                    <button onClick={() => setSelectedTrack(null)} className="p-1 rounded-lg hover:bg-white/10 text-white/30 interactive">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {(selectedTrack === 'music' || selectedTrack?.startsWith('music:') || selectedTrack?.startsWith('effect:')) && (
+                        <button onClick={splitSelectedTrackAtPlayhead}
+                          className="px-2.5 py-1 rounded-lg border border-yellow-500/30 bg-yellow-500/10 text-[10px] font-bold text-yellow-300/80 hover:bg-yellow-500/20 interactive">
+                          Cortar
+                        </button>
+                      )}
+                      <button onClick={() => setSelectedTrack(null)} className="p-1 rounded-lg hover:bg-white/10 text-white/30 interactive">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   {selectedTrack === 'tts' && (
@@ -1575,11 +1642,9 @@ export default function SoundTruckTTS() {
                       </div>
                       <div className="rounded-lg border border-blue-500/20 bg-blue-500/[0.05] p-2">
                         <label className="text-[9px] uppercase tracking-widest text-blue-300/60 font-bold block mb-1">Corte no playhead</label>
-                        <button
-                          onClick={splitMainMusicAt}
-                          className="w-full py-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 text-[10px] font-bold text-blue-200/80 hover:bg-blue-500/20 interactive"
-                        >
-                          Cortar música principal na barra amarela ({playheadRef.current.toFixed(1)}s)
+                        <button onClick={splitMainMusicAt}
+                          className="w-full py-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 text-[10px] font-bold text-blue-200/80 hover:bg-blue-500/20 interactive">
+                          Cortar
                         </button>
                       </div>
                       <button onClick={() => { setSelectedMusic(null); setBgMusicTrimStart(0); setBgMusicStartTime(0); setBgMusicEndTime(null); setSelectedTrack(null); mixedBufferRef.current = null; }}
@@ -1664,12 +1729,10 @@ export default function SoundTruckTTS() {
                                   placeholder="Fade Out (s)"
                                 />
                               </div>
-                              <button
-                                onClick={() => splitExtraMusicAt(track.id)}
+                              <button onClick={() => splitExtraMusicAt(track.id)}
                                 className="w-full py-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 text-[10px] font-bold text-blue-200/80 hover:bg-blue-500/20 interactive"
-                                title="Corta esta faixa na posição atual da barra amarela"
-                              >
-                                Cortar esta faixa no playhead ({playheadRef.current.toFixed(1)}s)
+                                title="Corta esta faixa na posição atual da barra amarela">
+                                Cortar
                               </button>
                             </div>
                           ))}
@@ -1677,6 +1740,61 @@ export default function SoundTruckTTS() {
                       )}
                     </div>
                   )}
+
+                  {selectedTrack?.startsWith('music:') && (() => {
+                    const trackId = selectedTrack.replace('music:', '');
+                    const track = extraMusicTracks.find(t => t.id === trackId);
+                    if (!track) return null;
+                    return (
+                      <div className="space-y-3">
+                        <div className="text-[10px] text-blue-200/80 font-medium truncate">{track.name}</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold block mb-1">Início (s)</label>
+                            <input type="number" min="0" step="0.5" value={track.startTime}
+                              onChange={(e) => {
+                                const value = Math.max(0, parseFloat(e.target.value) || 0);
+                                setExtraMusicTracks(prev => prev.map(t => t.id === track.id ? { ...t, startTime: value } : t));
+                                mixedBufferRef.current = null;
+                              }}
+                              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-blue-500/40 interactive" />
+                          </div>
+                          <div>
+                            <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold block mb-1">Fim (s)</label>
+                            <input type="number" min="0" step="0.5" value={track.endTime ?? ''}
+                              placeholder="∞"
+                              onChange={(e) => {
+                                const v = parseFloat(e.target.value);
+                                const minEnd = track.startTime + 0.5;
+                                setExtraMusicTracks(prev => prev.map(t => t.id === track.id ? { ...t, endTime: isNaN(v) ? null : Math.max(minEnd, v) } : t));
+                                mixedBufferRef.current = null;
+                              }}
+                              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-blue-500/40 interactive placeholder:text-white/15" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold flex justify-between mb-1">
+                            Volume <span className={`${track.volume > 1 ? 'text-yellow-400' : 'text-blue-400/80'}`}>{Math.round(track.volume * 100)}%</span>
+                          </label>
+                          <input type="range" min="0" max="3" step="0.05" value={track.volume}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              setExtraMusicTracks(prev => prev.map(t => t.id === track.id ? { ...t, volume: value } : t));
+                              mixedBufferRef.current = null;
+                            }}
+                            className="w-full accent-blue-500" />
+                        </div>
+                        <button onClick={() => {
+                          setExtraMusicTracks(prev => prev.filter(t => t.id !== track.id));
+                          setSelectedTrack(null);
+                          mixedBufferRef.current = null;
+                        }}
+                          className="w-full py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[10px] text-red-400/70 hover:bg-red-500/20 interactive">
+                          Remover Música
+                        </button>
+                      </div>
+                    );
+                  })()}
 
                   {selectedTrack?.startsWith('effect:') && (() => {
                     const effectId = selectedTrack.replace('effect:', '');
@@ -1979,7 +2097,7 @@ export default function SoundTruckTTS() {
                 <div className="overflow-x-auto custom-scrollbar -mx-1 px-1">
                 <div ref={timelineBarRef} className="relative bg-black/30 rounded-xl mb-4 border border-white/[0.06] p-3 select-none min-w-[760px] md:min-w-0">
                   {/* Time ruler - click to seek */}
-                  <div className="flex justify-between text-[9px] text-white/25 mb-2 px-1 font-mono cursor-pointer hover:text-white/40 interactive"
+                  <div className="flex justify-between text-[10px] text-cyan-200/75 mb-2 px-1 font-mono cursor-pointer hover:text-cyan-100 interactive"
                     onClick={(e) => {
                       const bar = timelineBarRef.current;
                       if (!bar) return;
@@ -2078,7 +2196,8 @@ export default function SoundTruckTTS() {
                   {/* Background music track - integrated controls */}
                   <div className="relative h-12 md:h-10 mb-1">
                     {selectedMusic ? (
-                      <div className={`absolute inset-y-0 track-music rounded-lg flex items-center gap-0 group/music touch-none overflow-hidden ${selectedTrack === 'music' ? 'border-2 border-blue-400 shadow-lg shadow-blue-500/20' : 'border border-blue-500/25'}`}
+                      <>
+                      <div className={`absolute inset-y-0 track-music rounded-lg flex items-center gap-0 group/music touch-none overflow-hidden z-10 ${selectedTrack === 'music' ? 'border-2 border-blue-400 shadow-lg shadow-blue-500/20' : 'border border-blue-500/25'}`}
                         style={{
                           left: `${(bgMusicStartTime / totalTimelineDuration) * 100}%`,
                           width: `${((bgMusicEnd - bgMusicStartTime) / totalTimelineDuration) * 100}%`,
@@ -2164,6 +2283,25 @@ export default function SoundTruckTTS() {
                           <div className="w-0.5 h-4 bg-blue-400/70 rounded" />
                         </div>
                       </div>
+                      {extraMusicTracks.map(track => {
+                        const trackEnd = track.endTime ?? (track.startTime + 30);
+                        const isSelected = selectedTrack === `music:${track.id}`;
+                        return (
+                          <div key={track.id}
+                            className={`absolute inset-y-0 track-music rounded-lg flex items-center gap-0 touch-none overflow-hidden z-20 ${isSelected ? 'border-2 border-blue-300 shadow-lg shadow-blue-500/25 bg-blue-500/25' : 'border border-blue-400/50 bg-blue-500/15 hover:bg-blue-500/20'}`}
+                            style={{
+                              left: `${(track.startTime / totalTimelineDuration) * 100}%`,
+                              width: `${(((trackEnd - track.startTime) / totalTimelineDuration) * 100)}%`,
+                            }}
+                            onClick={() => setSelectedTrack(isSelected ? null : `music:${track.id}`)}>
+                            <div className="flex-1 flex items-center px-3 gap-2 min-w-0">
+                              <span className="text-[10px] text-blue-100 font-medium truncate">🎵 {track.name}</span>
+                              <span className="text-[9px] ml-auto font-mono text-blue-200/70">{Math.round(track.volume * 100)}%</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      </>
                     ) : (
                       <div className="absolute inset-y-0 left-0 w-full rounded-lg bg-blue-500/[0.06] border border-blue-500/15 flex items-center justify-center">
                         <span className="text-[10px] text-blue-300/30">🎵 Adicione música abaixo</span>
