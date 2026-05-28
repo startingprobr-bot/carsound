@@ -15,6 +15,7 @@ export interface SoundEffect {
 const bufferCache = new Map<string, AudioBuffer>();
 
 export const SOUND_EFFECTS: SoundEffect[] = [
+  { id: 'plantao-da-globo', name: 'Plantão da Globo', emoji: '🎵', category: 'Publico', url: '/effects/plantao-da-globo.mp3' },
   { id: 'aplausos', name: 'Aplausos', emoji: '👏', category: 'Publico', url: '/effects/aplausos.mp3' },
   { id: 'aplausos-2', name: 'Aplausos 2', emoji: '👏', category: 'Publico', url: '/effects/aplausos-2.mp3' },
   { id: 'cantada-pneu', name: 'Cantada de Pneu', emoji: '🏎️', category: 'Veiculos', url: '/effects/cantaa-de-pneu.mp3' },
