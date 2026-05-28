@@ -127,9 +127,7 @@ export default function SoundTruckTTS() {
   const [bgMusicEndTime, setBgMusicEndTime] = useState<number | null>(null);
   const [bgMusicFadeIn, setBgMusicFadeIn] = useState(0);
   const [bgMusicFadeOut, setBgMusicFadeOut] = useState(0);
-  const [bgMusicSplitAt, setBgMusicSplitAt] = useState('');
   const [extraMusicTracks, setExtraMusicTracks] = useState<ExtraMusicTrack[]>([]);
-  const [extraMusicSplitAt, setExtraMusicSplitAt] = useState<Record<string, string>>({});
   const [isUploadingMusic, setIsUploadingMusic] = useState(false);
 
   // --- Timeline ---
@@ -694,15 +692,11 @@ export default function SoundTruckTTS() {
 
   const splitMainMusicAt = () => {
     if (!selectedMusic) return;
-    const splitAt = parseFloat(bgMusicSplitAt);
-    if (isNaN(splitAt)) {
-      toast.error('Informe um tempo válido para cortar a música principal');
-      return;
-    }
+    const splitAt = playheadRef.current;
 
     const currentEnd = bgMusicEndTime ?? (bgMusicStartTime + 30);
     if (splitAt <= bgMusicStartTime + 0.2 || splitAt >= currentEnd - 0.2) {
-      toast.error('Escolha um tempo entre o início e o fim da música principal');
+      toast.error('Posicione a barra amarela dentro da música principal para cortar');
       return;
     }
 
@@ -714,24 +708,20 @@ export default function SoundTruckTTS() {
       trimStart: bgMusicTrimStart + (splitAt - bgMusicStartTime),
       endTime: currentEnd,
       volume: bgMusicVolume,
-      fadeIn: bgMusicFadeIn,
+      // Keep playback unchanged at the cut point by avoiding extra fades at the new boundary.
+      fadeIn: 0,
       fadeOut: bgMusicFadeOut,
     };
 
     setBgMusicEndTime(splitAt);
-    setExtraMusicTracks(prev => [...prev, part2]);
-    setBgMusicSplitAt('');
+    setBgMusicFadeOut(0);
+    setExtraMusicTracks(prev => [...prev, part2].sort((a, b) => a.startTime - b.startTime));
     mixedBufferRef.current = null;
-    toast.success('Música principal cortada! Agora ajuste os volumes separadamente.');
+    toast.success(`Música principal cortada no playhead (${splitAt.toFixed(1)}s)`);
   };
 
   const splitExtraMusicAt = (trackId: string) => {
-    const splitRaw = extraMusicSplitAt[trackId] ?? '';
-    const splitAt = parseFloat(splitRaw);
-    if (isNaN(splitAt)) {
-      toast.error('Informe um tempo válido para cortar a faixa extra');
-      return;
-    }
+    const splitAt = playheadRef.current;
 
     let didSplit = false;
     setExtraMusicTracks(prev => {
@@ -751,25 +741,25 @@ export default function SoundTruckTTS() {
         trimStart: track.trimStart + (splitAt - track.startTime),
         endTime: currentEnd,
         volume: track.volume,
-        fadeIn: track.fadeIn,
+        // Keep playback unchanged at the cut point by avoiding extra fades at the new boundary.
+        fadeIn: 0,
         fadeOut: track.fadeOut,
       };
       didSplit = true;
 
       return [
-        ...prev.map(t => t.id === trackId ? { ...t, endTime: splitAt } : t),
+        ...prev.map(t => t.id === trackId ? { ...t, endTime: splitAt, fadeOut: 0 } : t),
         part2,
-      ];
+      ].sort((a, b) => a.startTime - b.startTime);
     });
 
     if (!didSplit) {
-      toast.error('Escolha um tempo entre o início e o fim da faixa extra');
+      toast.error('Posicione a barra amarela dentro da faixa extra para cortar');
       return;
     }
 
-    setExtraMusicSplitAt(prev => ({ ...prev, [trackId]: '' }));
     mixedBufferRef.current = null;
-    toast.success('Faixa extra cortada com sucesso!');
+    toast.success(`Faixa extra cortada no playhead (${splitAt.toFixed(1)}s)`);
   };
 
   // ============================================================
@@ -1584,25 +1574,13 @@ export default function SoundTruckTTS() {
                         </div>
                       </div>
                       <div className="rounded-lg border border-blue-500/20 bg-blue-500/[0.05] p-2">
-                        <label className="text-[9px] uppercase tracking-widest text-blue-300/60 font-bold block mb-1">Cortar principal em (s)</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <input
-                            type="number"
-                            min={bgMusicStartTime + 0.2}
-                            max={(bgMusicEndTime ?? (bgMusicStartTime + 30)) - 0.2}
-                            step="0.1"
-                            value={bgMusicSplitAt}
-                            onChange={(e) => setBgMusicSplitAt(e.target.value)}
-                            className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-2 py-1.5 text-[11px] text-white/80 focus:outline-none focus:border-blue-500/40"
-                            placeholder="Ex: 12.5"
-                          />
-                          <button
-                            onClick={splitMainMusicAt}
-                            className="py-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 text-[10px] font-bold text-blue-200/80 hover:bg-blue-500/20 interactive"
-                          >
-                            Cortar
-                          </button>
-                        </div>
+                        <label className="text-[9px] uppercase tracking-widest text-blue-300/60 font-bold block mb-1">Corte no playhead</label>
+                        <button
+                          onClick={splitMainMusicAt}
+                          className="w-full py-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 text-[10px] font-bold text-blue-200/80 hover:bg-blue-500/20 interactive"
+                        >
+                          Cortar música principal na barra amarela ({playheadRef.current.toFixed(1)}s)
+                        </button>
                       </div>
                       <button onClick={() => { setSelectedMusic(null); setBgMusicTrimStart(0); setBgMusicStartTime(0); setBgMusicEndTime(null); setSelectedTrack(null); mixedBufferRef.current = null; }}
                         className="w-full py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[10px] text-red-400/70 hover:bg-red-500/20 interactive">
@@ -1686,25 +1664,13 @@ export default function SoundTruckTTS() {
                                   placeholder="Fade Out (s)"
                                 />
                               </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <input
-                                  type="number"
-                                  min={track.startTime + 0.2}
-                                  max={(track.endTime ?? (track.startTime + 30)) - 0.2}
-                                  step="0.1"
-                                  value={extraMusicSplitAt[track.id] ?? ''}
-                                  onChange={(e) => setExtraMusicSplitAt(prev => ({ ...prev, [track.id]: e.target.value }))}
-                                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-2 py-1.5 text-[11px] text-white/80 focus:outline-none focus:border-blue-500/40"
-                                  placeholder="Cortar em (s)"
-                                  title="Tempo para cortar esta faixa"
-                                />
-                                <button
-                                  onClick={() => splitExtraMusicAt(track.id)}
-                                  className="py-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 text-[10px] font-bold text-blue-200/80 hover:bg-blue-500/20 interactive"
-                                >
-                                  Cortar
-                                </button>
-                              </div>
+                              <button
+                                onClick={() => splitExtraMusicAt(track.id)}
+                                className="w-full py-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 text-[10px] font-bold text-blue-200/80 hover:bg-blue-500/20 interactive"
+                                title="Corta esta faixa na posição atual da barra amarela"
+                              >
+                                Cortar esta faixa no playhead ({playheadRef.current.toFixed(1)}s)
+                              </button>
                             </div>
                           ))}
                         </div>
