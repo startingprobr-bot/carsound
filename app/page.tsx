@@ -1808,6 +1808,7 @@ export default function SoundTruckTTS() {
                     const trackId = selectedTrack.replace('music:', '');
                     const track = extraMusicTracks.find(t => t.id === trackId);
                     if (!track) return null;
+                    const trackEnd = track.endTime ?? (track.startTime + 30);
                     return (
                       <div className="space-y-3">
                         <div className="text-[10px] text-blue-200/80 font-medium truncate">{track.name}</div>
@@ -1824,7 +1825,7 @@ export default function SoundTruckTTS() {
                           </div>
                           <div>
                             <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold block mb-1">Fim (s)</label>
-                            <input type="number" min="0" step="0.5" value={track.endTime ?? ''}
+                            <input type="number" min={track.startTime + 0.5} step="0.5" value={track.endTime ?? ''}
                               placeholder="∞"
                               onChange={(e) => {
                                 const v = parseFloat(e.target.value);
@@ -1846,6 +1847,20 @@ export default function SoundTruckTTS() {
                               mixedBufferRef.current = null;
                             }}
                             className="w-full accent-blue-500" />
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => splitExtraMusicAt(track.id)}
+                            className="flex-1 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg text-[10px] text-blue-300/80 hover:bg-blue-500/20 interactive">
+                            Cortar
+                          </button>
+                          <button onClick={() => {
+                            const shorter = Math.max(track.startTime + 0.5, trackEnd - 0.5);
+                            setExtraMusicTracks(prev => prev.map(t => t.id === track.id ? { ...t, endTime: shorter } : t));
+                            mixedBufferRef.current = null;
+                          }}
+                            className="flex-1 py-2 bg-white/[0.05] border border-white/[0.12] rounded-lg text-[10px] text-white/70 hover:bg-white/[0.1] interactive">
+                            Encurtar
+                          </button>
                         </div>
                         <button onClick={() => {
                           setExtraMusicTracks(prev => prev.filter(t => t.id !== track.id));
@@ -2360,6 +2375,25 @@ export default function SoundTruckTTS() {
                             <div className="flex-1 flex items-center px-3 gap-2 min-w-0">
                               <span className="text-[10px] text-blue-100 font-medium truncate">🎵 {track.name}</span>
                               <span className="text-[9px] ml-auto font-mono text-blue-200/70">{Math.round(track.volume * 100)}%</span>
+                            </div>
+                            <div className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize z-20 flex items-center justify-center hover:bg-blue-300/30 rounded-r"
+                              onPointerDown={(e) => {
+                                e.preventDefault(); e.stopPropagation();
+                                const bar = timelineBarRef.current; if (!bar) return;
+                                const startX = e.clientX;
+                                const origEnd = trackEnd;
+                                const onMove = (ev: PointerEvent) => {
+                                  const rect = bar.getBoundingClientRect();
+                                  const dx = ev.clientX - startX;
+                                  const dt = (dx / rect.width) * totalTimelineDuration;
+                                  const newEnd = Math.max(track.startTime + 0.5, Math.min(origEnd + dt, totalTimelineDuration));
+                                  setExtraMusicTracks(prev => prev.map(t => t.id === track.id ? { ...t, endTime: newEnd } : t));
+                                  mixedBufferRef.current = null;
+                                };
+                                const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
+                                window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+                              }}>
+                              <div className="w-0.5 h-4 bg-blue-300/80 rounded" />
                             </div>
                           </div>
                         );
