@@ -1440,7 +1440,9 @@ export default function SoundTruckTTS() {
   };
 
   const effectLayers = computeEffectLayers();
-  const numEffectLayers = Math.max(1, ...Array.from(effectLayers.values()).map(l => l + 1));
+  const numEffectLayers = timelineItems.length > 0
+    ? Math.max(1, ...Array.from(effectLayers.values()).map(l => l + 1))
+    : 0;
 
   const updateTimelineItem = (id: string, field: 'startTime' | 'volume' | 'trimStart' | 'trimEnd', value: number) => {
     setTimelineItems(prev =>
@@ -2272,6 +2274,7 @@ export default function SoundTruckTTS() {
                   </div>
 
                   {/* Background music track - integrated controls */}
+                  {(selectedMusic || extraMusicTracks.length > 0) && (
                   <div className="relative h-12 md:h-10 mb-1">
                     {selectedMusic ? (
                       <>
@@ -2400,21 +2403,15 @@ export default function SoundTruckTTS() {
                       })}
                       </>
                     ) : (
-                      <div className="absolute inset-y-0 left-0 w-full rounded-lg bg-blue-500/[0.06] border border-blue-500/15 flex items-center justify-center">
-                        <span className="text-[10px] text-blue-300/30">🎵 Adicione música abaixo</span>
-                      </div>
+                      <></>
                     )}
                   </div>
+                  )}
 
                   {/* Effects tracks */}
-                  {Array.from({ length: numEffectLayers }, (_, layerIndex) => (
+                  {numEffectLayers > 0 && Array.from({ length: numEffectLayers }, (_, layerIndex) => (
                     <div key={layerIndex} className="relative h-12 md:h-10 mt-1">
                       <div className="absolute inset-y-0 left-0 w-full track-effect rounded-lg border border-green-500/15">
-                        {layerIndex === 0 && timelineItems.length === 0 && (
-                          <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white/15">
-                            Arraste efeitos aqui ou clique + Adicionar
-                          </span>
-                        )}
                         {timelineItems.filter(item => (effectLayers.get(item.id) ?? 0) === layerIndex).map((item) => {
                           const effectTrimStart = item.trimStart ?? 0;
                           const effectFullDur = item.duration ?? 2;
@@ -2470,7 +2467,13 @@ export default function SoundTruckTTS() {
 
                               {/* Center drag area */}
                               <div className="flex-1 flex items-center px-2 gap-1 cursor-grab active:cursor-grabbing min-w-0"
-                                onPointerDown={(e) => handleTimelineDragStart(e, item.id)}>
+                                onPointerDown={(e) => {
+                                  if (e.pointerType === 'touch') {
+                                    setSelectedTrack(selectedTrack === `effect:${item.id}` ? null : `effect:${item.id}`);
+                                    return;
+                                  }
+                                  handleTimelineDragStart(e, item.id);
+                                }}>
                                 <Volume2 className="w-3 h-3 text-green-300 shrink-0" />
                                 <span className="text-[9px] text-green-300/80 font-mono truncate">{effName}</span>
                                 <span className="text-[8px] text-green-300/50 font-mono ml-auto shrink-0">{effectVisualDur.toFixed(1)}s</span>
@@ -2671,20 +2674,16 @@ export default function SoundTruckTTS() {
                       <>
                         <input type="file" accept="audio/*" className="hidden" id="bg-music-upload-btn"
                           onChange={(e) => e.target.files?.[0] && handleMusicUpload(e.target.files[0])} />
-                        {savedMusics.length > 0 ? (
-                          <div className="relative h-full">
-                            <select className="w-full h-full py-3 border border-dashed border-blue-500/20 rounded-xl text-[10px] uppercase tracking-[0.15em] text-blue-300/40 font-bold bg-transparent hover:bg-blue-500/[0.04] hover:text-blue-300/60 interactive text-center cursor-pointer focus:outline-none appearance-none"
-                              defaultValue="" onChange={(e) => { if (e.target.value === '__upload__') { document.getElementById('bg-music-upload-btn')?.click(); } else if (e.target.value) { addSavedMusicToMix(e.target.value); } }}>
-                              <option value="" disabled>{selectedMusic ? '+ Adicionar outra música' : '+ Música de Fundo'}</option>
-                              {savedMusics.map(m => <option key={m.name} value={m.url}>{m.name}</option>)}
-                              <option value="__upload__">📁 Upload novo...</option>
-                            </select>
-                          </div>
-                        ) : (
-                          <label htmlFor="bg-music-upload-btn"
-                            className="flex items-center justify-center w-full h-full py-3 border border-dashed border-blue-500/20 rounded-xl text-[10px] uppercase tracking-[0.15em] text-blue-300/40 font-bold hover:bg-blue-500/[0.04] hover:text-blue-300/60 interactive cursor-pointer">
-                            + Música de Fundo
-                          </label>
+                        <div className="relative h-full">
+                          <select className="w-full h-full py-3 border border-dashed border-blue-500/20 rounded-xl text-[10px] uppercase tracking-[0.15em] text-blue-300/40 font-bold bg-transparent hover:bg-blue-500/[0.04] hover:text-blue-300/60 interactive text-center cursor-pointer focus:outline-none appearance-none"
+                            defaultValue="" onChange={(e) => { if (e.target.value === '__upload__') { document.getElementById('bg-music-upload-btn')?.click(); } else if (e.target.value) { addSavedMusicToMix(e.target.value); } }}>
+                            <option value="" disabled>{selectedMusic ? '+ Adicionar outra música' : '+ Música de Fundo'}</option>
+                            {savedMusics.map(m => <option key={m.name} value={m.url}>{m.name}</option>)}
+                            <option value="__upload__">📁 Upload novo...</option>
+                          </select>
+                        </div>
+                        {savedMusics.length === 0 && (
+                          <p className="mt-1 text-[9px] text-blue-300/40 text-center">Sem músicas salvas na biblioteca</p>
                         )}
                         {selectedMusic && (
                           <button onClick={() => setSelectedTrack('music')}
