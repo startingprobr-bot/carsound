@@ -98,6 +98,11 @@ const TTS_STYLES = [
   { id: 'neutro', label: '🗣️ Neutro', desc: 'Claro e natural' },
 ];
 
+const DEFAULT_ANNOUNCEMENT_TEXT = `Atenção moradores e comerciantes da região!
+Último dia pra garantir desconto na sua conta de energia.
+Isso mesmo, desconto todo mês. O benefício é regulamentado pela Lei Federal 14 mil e 300. O cadastro é rápido, simples e totalmente gratuito.
+Leve documentos pessoais, fatura de energia atualizada e celular. Não perca, último dia pra garantir seu desconto. Vá agora em frente xxxxxxxxxxxxxxxxxxxxx e garanta um benefício que é direito seu.`;
+
 export default function SoundTruckTTS() {
   const isMobile = useIsMobile();
 
@@ -1953,6 +1958,15 @@ export default function SoundTruckTTS() {
             </button>
             {sectionOpen.text && (
               <div className="px-4 pb-4">
+                <div className="flex justify-end mb-2">
+                  <button
+                    onClick={() => setText(DEFAULT_ANNOUNCEMENT_TEXT)}
+                    className="px-3 py-1.5 rounded-lg border border-green-500/25 bg-green-500/10 text-[10px] font-bold uppercase tracking-[0.1em] text-green-300/80 hover:bg-green-500/20 interactive"
+                    title="Inserir modelo de texto padrão"
+                  >
+                    Usar Texto Padrão
+                  </button>
+                </div>
                 <textarea
                   value={text}
                   onChange={(e) => setText(e.target.value)}
