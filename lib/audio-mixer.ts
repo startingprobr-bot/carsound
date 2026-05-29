@@ -68,7 +68,7 @@ export async function mixAudio(
     if (itemEnd > maxDuration) maxDuration = itemEnd;
   }
   if (bgMusicUrl) {
-    const musicEnd = bgMusicEndTime ?? (bgMusicStartTime + maxDuration);
+    const musicEnd = bgMusicEndTime ?? (bgMusicStartTime + 30);
     if (musicEnd > maxDuration) maxDuration = musicEnd;
   }
   for (const track of additionalBgTracks) {
@@ -110,7 +110,7 @@ export async function mixAudio(
       musicSource.loop = true;
 
       const gainNode = offlineCtx.createGain();
-      const clipEnd = bgMusicEndTime ?? (totalDuration - 0.05);
+      const clipEnd = bgMusicEndTime ?? (bgMusicStartTime + 30);
       const clipDuration = Math.max(0.05, clipEnd - bgMusicStartTime);
       const fadeInDur = Math.min(Math.max(0, bgMusicFadeIn), clipDuration);
       const fadeOutDur = Math.min(Math.max(0, bgMusicFadeOut), Math.max(0, clipDuration - fadeInDur));
@@ -129,9 +129,9 @@ export async function mixAudio(
       gainNode.connect(offlineCtx.destination);
       // Start at bgMusicStartTime on timeline, offset bgMusicTrimStart into the file
       musicSource.start(bgMusicStartTime, bgMusicTrimStart);
-      // Stop music at endTime if specified
-      if (bgMusicEndTime !== null && bgMusicEndTime > bgMusicStartTime) {
-        musicSource.stop(bgMusicEndTime);
+      // Stop music at the effective visual end
+      if (clipEnd > bgMusicStartTime) {
+        musicSource.stop(clipEnd);
       }
     } catch (e) {
       console.warn('Failed to add background music:', e);
@@ -149,7 +149,7 @@ export async function mixAudio(
       musicSource.loop = true;
 
       const gainNode = offlineCtx.createGain();
-      const clipEnd = track.endTime ?? (totalDuration - 0.05);
+      const clipEnd = track.endTime ?? (track.startTime + 30);
       const clipDuration = Math.max(0.05, clipEnd - track.startTime);
       const fadeInDur = Math.min(Math.max(0, track.fadeIn), clipDuration);
       const fadeOutDur = Math.min(Math.max(0, track.fadeOut), Math.max(0, clipDuration - fadeInDur));
@@ -168,8 +168,8 @@ export async function mixAudio(
       gainNode.connect(offlineCtx.destination);
 
       musicSource.start(track.startTime, track.trimStart);
-      if (track.endTime !== null && track.endTime > track.startTime) {
-        musicSource.stop(track.endTime);
+      if (clipEnd > track.startTime) {
+        musicSource.stop(clipEnd);
       }
     } catch (e) {
       console.warn('Failed to add extra background music:', e);

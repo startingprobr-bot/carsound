@@ -996,7 +996,9 @@ export default function SoundTruckTTS() {
   // ============================================================
   // TIMELINE MANAGEMENT
   // ============================================================
-  const ttsFullDuration = lastGeneratedPcm ? (lastGeneratedPcm.length / 24000 / speed) : 0;
+  const timelineTtsPcm = lastGeneratedPcm ? getEffectiveTtsPcm(lastGeneratedPcm, speed) : null;
+  const timelineTtsSpeed = preserveVoicePitch ? 1 : speed;
+  const ttsFullDuration = timelineTtsPcm ? (timelineTtsPcm.length / 24000 / timelineTtsSpeed) : 0;
   const ttsDuration = (ttsTrimEnd ?? ttsFullDuration) - ttsTrimStart;
   const ttsEndTime = ttsStartTime + ttsDuration;
 
@@ -1190,7 +1192,7 @@ export default function SoundTruckTTS() {
         bgMusicVolume,
         ttsStartTime,
         bgMusicStartTime,
-        bgMusicEndTime,
+        selectedMusic ? bgMusicEnd : null,
         bgMusicTrimStart,
         ttsTrimStart,
         ttsTrimEnd,
@@ -1199,7 +1201,7 @@ export default function SoundTruckTTS() {
         extraMusicTracks.map(track => ({
           url: track.url,
           startTime: track.startTime,
-          endTime: track.endTime,
+          endTime: track.endTime ?? (track.startTime + 30),
           trimStart: track.trimStart,
           volume: track.volume,
           fadeIn: track.fadeIn,
@@ -1242,7 +1244,7 @@ export default function SoundTruckTTS() {
         bgMusicVolume,
         ttsStartTime,
         bgMusicStartTime,
-        bgMusicEndTime,
+        selectedMusic ? bgMusicEnd : null,
         bgMusicTrimStart,
         ttsTrimStart,
         ttsTrimEnd,
@@ -1251,7 +1253,7 @@ export default function SoundTruckTTS() {
         extraMusicTracks.map(track => ({
           url: track.url,
           startTime: track.startTime,
-          endTime: track.endTime,
+          endTime: track.endTime ?? (track.startTime + 30),
           trimStart: track.trimStart,
           volume: track.volume,
           fadeIn: track.fadeIn,
@@ -1301,7 +1303,7 @@ export default function SoundTruckTTS() {
           bgMusicVolume,
           ttsStartTime,
           bgMusicStartTime,
-          bgMusicEndTime,
+          selectedMusic ? bgMusicEnd : null,
           bgMusicTrimStart,
           ttsTrimStart,
           ttsTrimEnd,
@@ -1310,7 +1312,7 @@ export default function SoundTruckTTS() {
           extraMusicTracks.map(track => ({
             url: track.url,
             startTime: track.startTime,
-            endTime: track.endTime,
+            endTime: track.endTime ?? (track.startTime + 30),
             trimStart: track.trimStart,
             volume: track.volume,
             fadeIn: track.fadeIn,
