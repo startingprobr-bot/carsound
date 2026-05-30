@@ -2999,7 +2999,7 @@ export default function SoundTruckTTS() {
                     type="text"
                     value={apiKeyInput}
                     onChange={(e) => setApiKeyInput(e.target.value)}
-                    placeholder="AIza..."
+                    placeholder="AIza... ou AQ..."
                     className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white/80 font-mono focus:outline-none focus:border-purple-500/50 placeholder:text-white/15 interactive"
                   />
                   <button onClick={submitCommunityKey} disabled={isSubmittingKey || !apiKeyInput.trim()}

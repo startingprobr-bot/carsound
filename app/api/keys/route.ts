@@ -33,10 +33,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Chave inválida' }, { status: 400 });
     }
 
-    // Basic validation: Gemini API keys start with "AIza" and are ~39 chars
+    // Basic validation: aceita formato antigo (AIza...) e novo (AQ....) do Google AI Studio
     const trimmed = key.trim();
-    if (!trimmed.startsWith('AIza') || trimmed.length < 30) {
-      return NextResponse.json({ error: 'Formato de chave inválido. A chave deve começar com "AIza..."' }, { status: 400 });
+    const isValid = (trimmed.startsWith('AIza') || trimmed.startsWith('AQ.')) && trimmed.length >= 30;
+    if (!isValid) {
+      return NextResponse.json({ error: 'Formato de chave inválido. A chave deve começar com "AIza..." ou "AQ..."' }, { status: 400 });
     }
 
     const keys = await loadKeys();
