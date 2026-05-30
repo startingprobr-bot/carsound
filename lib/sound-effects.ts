@@ -15,7 +15,7 @@ export interface SoundEffect {
 const bufferCache = new Map<string, AudioBuffer>();
 
 export const SOUND_EFFECTS: SoundEffect[] = [
-  { id: 'plantao-da-globo', name: 'Plantão da Globo', emoji: '🎵', category: 'Publico', url: '/effects/plantao-da-globo.mp3' },
+  { id: 'plantao-da-globo', name: 'Plantão da Globo', emoji: '🚨', category: 'Classicos', url: '/effects/plantao-da-globo.mp3' },
   { id: 'aplausos', name: 'Aplausos', emoji: '👏', category: 'Publico', url: '/effects/aplausos.mp3' },
   { id: 'aplausos-2', name: 'Aplausos 2', emoji: '👏', category: 'Publico', url: '/effects/aplausos-2.mp3' },
   { id: 'cantada-pneu', name: 'Cantada de Pneu', emoji: '🏎️', category: 'Veiculos', url: '/effects/cantaa-de-pneu.mp3' },
@@ -36,14 +36,22 @@ export const SOUND_EFFECTS: SoundEffect[] = [
 ];
 
 export async function loadEffectBuffer(ctx: AudioContext, effectId: string): Promise<AudioBuffer | null> {
-  const effect = SOUND_EFFECTS.find(e => e.id === effectId);
-  if (!effect) return null;
-
   const cached = bufferCache.get(effectId);
   if (cached) return cached;
 
+  // Custom effects uploaded by the user have id "custom:<filename>"
+  let url: string | null = null;
+  if (effectId.startsWith('custom:')) {
+    const filename = effectId.slice('custom:'.length);
+    url = `/api/effects/${encodeURIComponent(filename)}`;
+  } else {
+    const effect = SOUND_EFFECTS.find(e => e.id === effectId);
+    if (effect) url = effect.url;
+  }
+  if (!url) return null;
+
   try {
-    const response = await fetch(effect.url);
+    const response = await fetch(url);
     const arrayBuffer = await response.arrayBuffer();
     const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
     bufferCache.set(effectId, audioBuffer);

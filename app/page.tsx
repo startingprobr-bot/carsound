@@ -1676,7 +1676,7 @@ export default function SoundTruckTTS() {
                         <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold flex justify-between mb-1">
                           Volume <span className={`${bgMusicVolume > 1 ? 'text-yellow-400' : 'text-blue-400/80'}`}>{Math.round(bgMusicVolume * 100)}%</span>
                         </label>
-                        <input type="range" min="0" max="3" step="0.05" value={bgMusicVolume}
+                        <input type="range" min="0" max="3" step="0.01" value={bgMusicVolume}
                           onChange={(e) => { setBgMusicVolume(parseFloat(e.target.value)); mixedBufferRef.current = null; }}
                           className="w-full accent-blue-500" />
                       </div>
@@ -1760,7 +1760,7 @@ export default function SoundTruckTTS() {
                                   type="range"
                                   min="0"
                                   max="3"
-                                  step="0.05"
+                                  step="0.01"
                                   value={track.volume}
                                   onChange={(e) => {
                                     const value = parseFloat(e.target.value);
@@ -1849,7 +1849,7 @@ export default function SoundTruckTTS() {
                           <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold flex justify-between mb-1">
                             Volume <span className={`${track.volume > 1 ? 'text-yellow-400' : 'text-blue-400/80'}`}>{Math.round(track.volume * 100)}%</span>
                           </label>
-                          <input type="range" min="0" max="3" step="0.05" value={track.volume}
+                          <input type="range" min="0" max="3" step="0.01" value={track.volume}
                             onChange={(e) => {
                               const value = parseFloat(e.target.value);
                               setExtraMusicTracks(prev => prev.map(t => t.id === track.id ? { ...t, volume: value } : t));
@@ -1924,7 +1924,7 @@ export default function SoundTruckTTS() {
                           <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold flex justify-between mb-1">
                             Volume <span className={`${item.volume > 1 ? 'text-yellow-400' : 'text-green-400/80'}`}>{Math.round(item.volume * 100)}%</span>
                           </label>
-                          <input type="range" min="0" max="3" step="0.05" value={item.volume}
+                          <input type="range" min="0" max="3" step="0.01" value={item.volume}
                             onChange={(e) => { updateTimelineItem(item.id, 'volume', parseFloat(e.target.value)); }}
                             className="w-full accent-green-500" />
                         </div>
