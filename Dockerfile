@@ -13,6 +13,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# Limita a memoria do Node durante o build (VPS pequena)
+ENV NODE_OPTIONS="--max-old-space-size=1536"
 RUN npm run build
 
 # ---------- runtime ----------
