@@ -18,10 +18,26 @@ async function loadKeys(): Promise<CommunityKey[]> {
   }
 }
 
-// GET: return count of community keys (not the keys themselves)
+function countEnvKeys(): number {
+  const multi = process.env.GEMINI_API_KEYS;
+  if (multi) {
+    return multi.split(',').map(k => k.trim()).filter(Boolean).length;
+  }
+  const single = process.env.GEMINI_API_KEY;
+  if (single && single !== 'COLE_SUA_CHAVE_AQUI') return 1;
+  return 0;
+}
+
+// GET: return key counts (community + env), without exposing the keys themselves
 export async function GET() {
   const keys = await loadKeys();
-  return NextResponse.json({ count: keys.length });
+  const envCount = countEnvKeys();
+  const community = keys.length;
+  return NextResponse.json({
+    count: community + envCount, // compat: total de chaves
+    community,
+    env: envCount,
+  });
 }
 
 // POST: add a new community API key

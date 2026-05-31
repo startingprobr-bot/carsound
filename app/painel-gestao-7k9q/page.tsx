@@ -34,6 +34,7 @@ export default function AdminPage() {
   const [authHeader, setAuthHeader] = useState<string | null>(null);
   const [logs, setLogs] = useState<AdminLogEntry[]>([]);
   const [communityKeyCount, setCommunityKeyCount] = useState<number>(0);
+  const [envKeyCount, setEnvKeyCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [period, setPeriod] = useState<Period>('7d');
@@ -57,9 +58,11 @@ export default function AdminPage() {
       setLogs(Array.isArray(data.logs) ? data.logs : []);
       try {
         const k = await keysRes.json();
-        setCommunityKeyCount(typeof k?.count === 'number' ? k.count : 0);
+        setCommunityKeyCount(typeof k?.community === 'number' ? k.community : 0);
+        setEnvKeyCount(typeof k?.env === 'number' ? k.env : 0);
       } catch {
         setCommunityKeyCount(0);
+        setEnvKeyCount(0);
       }
       return true;
     } catch {
@@ -166,7 +169,8 @@ export default function AdminPage() {
     [logs]
   );
 
-  const dailyCapacity = Math.max(communityKeyCount, 1) * FREE_TIER_REQ_PER_KEY;
+  const totalKeys = communityKeyCount + envKeyCount;
+  const dailyCapacity = Math.max(totalKeys, 1) * FREE_TIER_REQ_PER_KEY;
   const todayUsagePct = Math.min(100, (stats.todayCount / dailyCapacity) * 100);
 
   if (!authHeader) {
@@ -251,7 +255,12 @@ export default function AdminPage() {
           <KpiCard label="Caracteres totais" value={fmtInt(stats.totalChars)} hint={`~${fmtInt(Math.round(stats.totalChars / 4))} tokens`} accent="blue" />
           <KpiCard label="IPs únicos" value={fmtInt(stats.uniqueIps)} accent="purple" />
           <KpiCard label="Com cidade" value={fmtInt(stats.withCity)} hint={`${stats.total ? Math.round((stats.withCity / stats.total) * 100) : 0}% do total`} accent="cyan" />
-          <KpiCard label="Chaves comunitárias" value={fmtInt(communityKeyCount)} hint={`~${fmtInt(dailyCapacity)} req/dia`} accent="yellow" />
+          <KpiCard
+            label="Chaves ativas"
+            value={fmtInt(totalKeys)}
+            hint={`${envKeyCount} sua${envKeyCount === 1 ? '' : 's'} + ${communityKeyCount} comunidade · ~${fmtInt(dailyCapacity)} req/dia`}
+            accent="yellow"
+          />
         </div>
 
         <Section title="Capacidade do dia">
