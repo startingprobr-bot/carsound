@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import {
   Volume2, Play, Music, History,
   ListMusic, Trash2, Download, Plus, Pause, Square, Upload,
@@ -143,6 +144,7 @@ export default function SoundTruckTTS() {
   const [ttsStartTime, setTtsStartTime] = useState(0);
   const [ttsTrimStart, setTtsTrimStart] = useState(0);
   const [ttsTrimEnd, setTtsTrimEnd] = useState<number | null>(null);
+  const [ttsVolume, setTtsVolume] = useState(1);
 
   // --- Timeline Playhead ---
   const [playheadTime, setPlayheadTime] = useState(0);
@@ -1091,7 +1093,11 @@ export default function SoundTruckTTS() {
         src.start();
       }).catch(() => toast.error('Erro ao reproduzir efeito'));
     } else {
-      playEffect(ctx, effectId);
+      playEffect(ctx, effectId).then((src) => {
+        if (!src) {
+          toast.error('Efeito sem audio ou indisponivel');
+        }
+      });
     }
   };
 
@@ -1127,6 +1133,7 @@ export default function SoundTruckTTS() {
         prev.map(i => i.id === itemId ? { ...i, startTime: Math.max(0, newTime) } : i)
           .sort((a, b) => a.startTime - b.startTime)
       );
+      mixedBufferRef.current = null;
     };
     const onUp = () => {
       setDraggingItem(null);
@@ -1187,6 +1194,7 @@ export default function SoundTruckTTS() {
         ttsPcmForMix,
         24000,
         ttsSpeedForMix,
+        ttsVolume,
         timelineItems,
         selectedMusic,
         bgMusicVolume,
@@ -1239,6 +1247,7 @@ export default function SoundTruckTTS() {
         ttsPcmForMix,
         24000,
         ttsSpeedForMix,
+        ttsVolume,
         timelineItems,
         selectedMusic,
         bgMusicVolume,
@@ -1298,6 +1307,7 @@ export default function SoundTruckTTS() {
           ttsPcmForMix,
           24000,
           ttsSpeedForMix,
+          ttsVolume,
           timelineItems,
           selectedMusic,
           bgMusicVolume,
@@ -1542,8 +1552,15 @@ export default function SoundTruckTTS() {
       {/* Header */}
       <header className="glass-strong sticky top-0 z-50 px-3 md:px-6 py-3 md:py-4 flex justify-between items-center gap-3">
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
-          <div className="bg-gradient-to-br from-green-500 to-green-700 p-2.5 rounded-xl shadow-lg shadow-green-900/30">
-            <Volume2 className="w-5 h-5" />
+          <div className="bg-gradient-to-br from-green-500/25 to-green-700/25 p-1.5 rounded-xl shadow-lg shadow-green-900/20 border border-green-400/20">
+            <Image
+              src="/ondas-sonoras.png"
+              alt="Logo Ondas Sonoras"
+              width={32}
+              height={32}
+              className="w-8 h-8 rounded-md object-cover"
+              priority
+            />
           </div>
           <div className="min-w-0">
             <h1 className="text-base md:text-lg font-black tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent truncate">Carro de Som</h1>
@@ -1639,6 +1656,14 @@ export default function SoundTruckTTS() {
                         <input type="number" min="0" step="0.5" value={ttsStartTime}
                           onChange={(e) => { setTtsStartTime(Math.max(0, parseFloat(e.target.value) || 0)); mixedBufferRef.current = null; }}
                           className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-green-500/40 interactive" />
+                      </div>
+                      <div>
+                        <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold flex justify-between mb-1">
+                          Volume <span className={`${ttsVolume > 1 ? 'text-yellow-400' : 'text-green-400/80'}`}>{Math.round(ttsVolume * 100)}%</span>
+                        </label>
+                        <input type="range" min="0" max="3" step="0.01" value={ttsVolume}
+                          onChange={(e) => { setTtsVolume(parseFloat(e.target.value)); mixedBufferRef.current = null; }}
+                          className="w-full accent-green-500" />
                       </div>
                       <div>
                         <label className="text-[9px] uppercase tracking-widest text-white/30 font-bold flex justify-between mb-1">
@@ -2265,6 +2290,9 @@ export default function SoundTruckTTS() {
                           window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
                         }}>
                         <span className="text-[10px] text-green-200 font-bold truncate">🎙️ Locução {ttsTrimStart > 0 ? `✂${ttsTrimStart.toFixed(1)}s ` : ''}({ttsDuration.toFixed(1)}s)</span>
+                        <span className={`text-[9px] ml-auto font-mono shrink-0 ${ttsVolume > 1 ? 'text-yellow-400' : 'text-green-300/70'}`}>
+                          {Math.round(ttsVolume * 100)}%
+                        </span>
                       </div>
 
                       {/* Right trim handle */}
@@ -2391,7 +2419,56 @@ export default function SoundTruckTTS() {
                               width: `${(((trackEnd - track.startTime) / totalTimelineDuration) * 100)}%`,
                             }}
                             onClick={() => setSelectedTrack(isSelected ? null : `music:${track.id}`)}>
+                            <div className="absolute left-0 top-0 bottom-0 w-2.5 cursor-col-resize z-20 flex items-center justify-center hover:bg-blue-300/30 rounded-l"
+                              onPointerDown={(e) => {
+                                e.preventDefault(); e.stopPropagation();
+                                const bar = timelineBarRef.current; if (!bar) return;
+                                const startX = e.clientX;
+                                const origStart = track.startTime;
+                                const origTrimStart = track.trimStart;
+                                const onMove = (ev: PointerEvent) => {
+                                  const rect = bar.getBoundingClientRect();
+                                  const dx = ev.clientX - startX;
+                                  const dt = (dx / rect.width) * totalTimelineDuration;
+                                  const nextStart = Math.max(0, Math.min(origStart + dt, trackEnd - 0.5));
+                                  const delta = nextStart - origStart;
+                                  const nextTrimStart = Math.max(0, origTrimStart + delta);
+                                  setExtraMusicTracks(prev => prev.map(t => t.id === track.id ? { ...t, startTime: nextStart, trimStart: nextTrimStart } : t));
+                                  mixedBufferRef.current = null;
+                                };
+                                const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
+                                window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+                              }}>
+                              <div className="w-0.5 h-4 bg-blue-300/80 rounded" />
+                            </div>
                             <div className="flex-1 flex items-center px-3 gap-2 min-w-0">
+                              <div
+                                className="absolute inset-y-0 left-2.5 right-2.5 cursor-grab active:cursor-grabbing"
+                                onPointerDown={(e) => {
+                                  if ((e.target as HTMLElement).closest('button, input, select')) return;
+                                  e.preventDefault(); e.stopPropagation();
+                                  const bar = timelineBarRef.current; if (!bar) return;
+                                  const startX = e.clientX;
+                                  const origStart = track.startTime;
+                                  const origEnd = trackEnd;
+                                  const duration = origEnd - origStart;
+                                  const onMove = (ev: PointerEvent) => {
+                                    const rect = bar.getBoundingClientRect();
+                                    const dx = ev.clientX - startX;
+                                    const dt = (dx / rect.width) * totalTimelineDuration;
+                                    const maxStart = Math.max(0, totalTimelineDuration - duration);
+                                    const nextStart = Math.max(0, Math.min(origStart + dt, maxStart));
+                                    setExtraMusicTracks(prev => prev.map(t => t.id === track.id ? {
+                                      ...t,
+                                      startTime: nextStart,
+                                      endTime: nextStart + duration,
+                                    } : t));
+                                    mixedBufferRef.current = null;
+                                  };
+                                  const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
+                                  window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+                                }}
+                              />
                               <span className="text-[10px] text-blue-100 font-medium truncate">🎵 {track.name}</span>
                               <span className="text-[9px] ml-auto font-mono text-blue-200/70">{Math.round(track.volume * 100)}%</span>
                             </div>
@@ -2484,15 +2561,14 @@ export default function SoundTruckTTS() {
                               {/* Center drag area */}
                               <div className="flex-1 flex items-center px-2 gap-1 cursor-grab active:cursor-grabbing min-w-0"
                                 onPointerDown={(e) => {
-                                  if (e.pointerType === 'touch') {
-                                    setSelectedTrack(selectedTrack === `effect:${item.id}` ? null : `effect:${item.id}`);
-                                    return;
-                                  }
                                   handleTimelineDragStart(e, item.id);
                                 }}>
                                 <Volume2 className="w-3 h-3 text-green-300 shrink-0" />
                                 <span className="text-[9px] text-green-300/80 font-mono truncate">{effName}</span>
-                                <span className="text-[8px] text-green-300/50 font-mono ml-auto shrink-0">{effectVisualDur.toFixed(1)}s</span>
+                                <span className={`text-[8px] font-mono ml-auto shrink-0 ${item.volume > 1 ? 'text-yellow-400' : 'text-green-300/60'}`}>
+                                  {Math.round(item.volume * 100)}%
+                                </span>
+                                <span className="text-[8px] text-green-300/50 font-mono shrink-0">{effectVisualDur.toFixed(1)}s</span>
                               </div>
 
                               {/* Right trim handle */}
@@ -2590,6 +2666,7 @@ export default function SoundTruckTTS() {
                           <Volume2 className="w-3 h-3" />
                           <span className="font-medium">{effName}</span>
                           <span className="text-white/25 font-mono">{item.startTime.toFixed(1)}s</span>
+                          <span className={`${item.volume > 1 ? 'text-yellow-400/80' : 'text-green-300/60'} font-mono`}>{Math.round(item.volume * 100)}%</span>
                           <span className="text-white/15 font-mono">{((item.trimEnd ?? item.duration ?? 2) - (item.trimStart ?? 0)).toFixed(1)}s</span>
                         </button>
                       );
@@ -2692,7 +2769,15 @@ export default function SoundTruckTTS() {
                           onChange={(e) => e.target.files?.[0] && handleMusicUpload(e.target.files[0])} />
                         <div className="relative h-full">
                           <select className="w-full h-full py-3 border border-dashed border-blue-500/20 rounded-xl text-[10px] uppercase tracking-[0.15em] text-blue-300/40 font-bold bg-transparent hover:bg-blue-500/[0.04] hover:text-blue-300/60 interactive text-center cursor-pointer focus:outline-none appearance-none"
-                            defaultValue="" onChange={(e) => { if (e.target.value === '__upload__') { document.getElementById('bg-music-upload-btn')?.click(); } else if (e.target.value) { addSavedMusicToMix(e.target.value); } }}>
+                            defaultValue="" onChange={(e) => {
+                              const value = e.currentTarget.value;
+                              if (value === '__upload__') {
+                                document.getElementById('bg-music-upload-btn')?.click();
+                              } else if (value) {
+                                addSavedMusicToMix(value);
+                              }
+                              e.currentTarget.value = '';
+                            }}>
                             <option value="" disabled>{selectedMusic ? '+ Adicionar outra música' : '+ Música de Fundo'}</option>
                             {savedMusics.map(m => <option key={m.name} value={m.url}>{m.name}</option>)}
                             <option value="__upload__">📁 Upload novo...</option>

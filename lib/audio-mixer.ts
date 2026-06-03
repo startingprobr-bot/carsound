@@ -33,6 +33,7 @@ export async function mixAudio(
   ttsPcm: Int16Array,
   ttsSampleRate: number,
   ttsSpeed: number,
+  ttsVolume: number,
   timelineItems: TimelineItem[],
   bgMusicUrl: string | null,
   bgMusicVolume: number,
@@ -93,7 +94,10 @@ export async function mixAudio(
   const ttsSource = offlineCtx.createBufferSource();
   ttsSource.buffer = ttsBuffer;
   ttsSource.playbackRate.value = ttsSpeed;
-  ttsSource.connect(offlineCtx.destination);
+  const ttsGain = offlineCtx.createGain();
+  ttsGain.gain.value = Math.max(0, ttsVolume);
+  ttsSource.connect(ttsGain);
+  ttsGain.connect(offlineCtx.destination);
   // Start at ttsStartTime on timeline, offset into buffer (converted from perceived to buffer time)
   const ttsBufferOffset = ttsTrimStart * ttsSpeed;
   const ttsBufferDuration = ttsDuration * ttsSpeed;
