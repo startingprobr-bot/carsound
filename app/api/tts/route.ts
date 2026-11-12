@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI, Modality } from "@google/genai";
 import fs from 'fs/promises';
 import path from 'path';
+import { getAllKeys, recordUse, markExhausted, isExhausted } from '@/lib/key-usage';
 
 const validVoices = [
   'Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr',
@@ -12,7 +13,6 @@ const validVoices = [
   'Zubenelgenubi', 'Vindemiatrix', 'Sadachbia', 'Sadaltager', 'Sulafat',
 ];
 
-const COMMUNITY_KEYS_FILE = path.join(process.cwd(), 'dados', 'community_keys.json');
 const ADMIN_LOGS_FILE = path.join(process.cwd(), 'dados', 'admin_logs.json');
 
 type AdminLogEntry = {
@@ -28,39 +28,6 @@ type AdminLogEntry = {
   locationQuery?: string;
   mapLink?: string;
 };
-
-async function getCommunityKeys(): Promise<string[]> {
-  try {
-    const data = await fs.readFile(COMMUNITY_KEYS_FILE, 'utf-8');
-    const keys: { key: string }[] = JSON.parse(data);
-    return keys.map(k => k.key).filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-
-function getEnvKeys(): string[] {
-  const multi = process.env.GEMINI_API_KEYS;
-  if (multi) {
-    return multi.split(',').map(k => k.trim()).filter(Boolean);
-  }
-  const single = process.env.GEMINI_API_KEY;
-  if (single && single !== 'COLE_SUA_CHAVE_AQUI') {
-    return [single];
-  }
-  return [];
-}
-
-async function getAllKeys(): Promise<string[]> {
-  const envKeys = getEnvKeys();
-  const communityKeys = await getCommunityKeys();
-  // Merge and deduplicate, env keys first (higher priority)
-  const all = [...envKeys];
-  for (const k of communityKeys) {
-    if (!all.includes(k)) all.push(k);
-  }
-  return all;
-}
 
 function extractIp(request: NextRequest): string {
   const xff = request.headers.get('x-forwarded-for');
@@ -220,14 +187,17 @@ export async function POST(request: NextRequest) {
     // Tenta cada chave; se uma atingir o limite, passa para a próxima
     let lastError: any = null;
     for (let i = 0; i < keys.length; i++) {
+      if (await isExhausted(keys[i])) continue; // já estourou hoje
       try {
         const base64Audio = await generateWithKey(keys[i], text, selectedVoice, style || 'entusiasmado');
+        await recordUse(keys[i]);
         if (!base64Audio) {
           return NextResponse.json({ error: 'Nenhum áudio gerado pela API.' }, { status: 502 });
         }
         return NextResponse.json({ audio: base64Audio });
       } catch (err: any) {
         lastError = err;
+        if (isQuotaError(err)) await markExhausted(keys[i]);
         if (isQuotaError(err) && i < keys.length - 1) {
           console.warn(`Chave ${i + 1}/${keys.length} atingiu o limite, tentando próxima...`);
           continue;
@@ -236,7 +206,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    throw lastError;
+    // Todas as chaves estão esgotadas hoje
+    return NextResponse.json(
+      { error: `Todas as ${keys.length} chave(s) atingiram o limite diário. Contribua com sua chave no ❤️ ou volte amanhã.` },
+      { status: 429 }
+    );
   } catch (error: any) {
     console.error('TTS API error:', error);
     const msg = error.message || '';

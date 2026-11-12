@@ -196,6 +196,7 @@ export default function SoundTruckTTS() {
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [isSubmittingKey, setIsSubmittingKey] = useState(false);
   const [communityKeyCount, setCommunityKeyCount] = useState(0);
+  const [keyStatus, setKeyStatus] = useState<{ activeKeys: number; totalKeys: number; remaining: number } | null>(null);
 
   // --- Selected track & collapsible ---
   const [selectedTrack, setSelectedTrack] = useState<'tts' | 'music' | string | null>(null);
@@ -260,7 +261,10 @@ export default function SoundTruckTTS() {
     loadData();
     loadMusics();
     loadCustomEffects();
-    fetch('/api/keys').then(r => r.json()).then(d => setCommunityKeyCount(d.count || 0)).catch(() => {});
+    const loadKeyStatus = () => fetch('/api/keys', { cache: 'no-store' }).then(r => r.json()).then(d => { setCommunityKeyCount(d.count || 0); setKeyStatus(d); }).catch(() => {});
+    loadKeyStatus();
+    const keyTimer = setInterval(loadKeyStatus, 60000);
+    window.addEventListener('keys-changed', loadKeyStatus);
     fetch('/api/likes').then(r => r.json()).then(d => setLikeCount(d.count || 0)).catch(() => {});
     setHasLiked(localStorage.getItem('carro_som_liked') === '1');
     // First visit: show quick attention notice + start tutorial
@@ -271,6 +275,7 @@ export default function SoundTruckTTS() {
     if (!localStorage.getItem('carro_som_tour_done')) {
       setTimeout(() => setTourStep(0), 2500);
     }
+    return () => { clearInterval(keyTimer); window.removeEventListener('keys-changed', loadKeyStatus); };
   }, []);
 
   const submitCommunityKey = async () => {
@@ -287,6 +292,7 @@ export default function SoundTruckTTS() {
         toast.success('Chave adicionada com sucesso! Obrigado por contribuir 🎉');
         setApiKeyInput('');
         setCommunityKeyCount(data.count || communityKeyCount + 1);
+        window.dispatchEvent(new Event('keys-changed'));
       } else {
         toast.error(data.error || 'Erro ao adicionar chave');
       }
@@ -1570,6 +1576,13 @@ export default function SoundTruckTTS() {
             <Heart className={`w-3.5 h-3.5 ${hasLiked ? 'fill-red-400' : ''}`} />
             {likeCount > 0 && <span className="text-[9px] font-mono text-red-400/70">{likeCount}</span>}
           </button>
+          {keyStatus && (
+            <div className="flex items-center gap-2 text-[9px] font-mono px-2 py-1 rounded-lg bg-white/[0.04] border border-white/[0.06]"
+              title="Gerações restantes hoje (estimativa) e chaves de API ativas. A cota zera por volta das 05h (Brasília).">
+              <span className={keyStatus.remaining > 0 ? 'text-green-400' : 'text-red-400'}>⚡ {keyStatus.remaining} geraç{keyStatus.remaining === 1 ? 'ão' : 'ões'}</span>
+              <span className="text-white/40">🔑 {keyStatus.activeKeys}/{keyStatus.totalKeys}</span>
+            </div>
+          )}
         </div>
         {/* Timecode display */}
         {lastGeneratedPcm && (

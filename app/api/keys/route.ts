@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
+import { getStatus } from '@/lib/key-usage';
 
 const KEYS_FILE = path.join(process.cwd(), 'dados', 'community_keys.json');
 
@@ -33,7 +34,9 @@ export async function GET() {
   const keys = await loadKeys();
   const envCount = countEnvKeys();
   const community = keys.length;
+  const status = await getStatus();
   return NextResponse.json({
+    ...status,
     count: community + envCount, // compat: total de chaves
     community,
     env: envCount,
